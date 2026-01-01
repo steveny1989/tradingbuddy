@@ -503,6 +503,38 @@ def run_backtest_task(task_id: str, strategy_id: str, config: dict):
         if 'daily_values' in result:
             result['daily_values'] = result['daily_values'].to_dict('records')
         
+        # 保存回测结果到数据库
+        backtest_data = {
+            'id': task_id,
+            'strategy_id': strategy_id,
+            'strategy_name': STRATEGY_REGISTRY[strategy_id]['name'],
+            'config': config,
+            'start_date': config['start_date'],
+            'end_date': config['end_date'],
+            'initial_capital': result.get('initial_capital'),
+            'final_value': result.get('final_value'),
+            'total_return': result.get('total_return'),
+            'total_profit': result.get('total_profit'),
+            'max_drawdown': result.get('max_drawdown'),
+            'total_trades': result.get('total_trades'),
+            'completed_trades': result.get('completed_trades'),
+            'win_trades': result.get('win_trades'),
+            'loss_trades': result.get('loss_trades'),
+            'win_rate': result.get('win_rate'),
+            'avg_profit': result.get('avg_profit'),
+            'avg_profit_rate': result.get('avg_profit_rate'),
+            'max_profit': result.get('max_profit'),
+            'max_loss': result.get('max_loss'),
+            'avg_hold_days': result.get('avg_hold_days'),
+            'daily_values': result.get('daily_values', []),
+            'trades': result.get('trades', []),
+            'status': 'completed',
+            'created_at': backtest_tasks[task_id]['created_at'],
+            'completed_at': datetime.now().isoformat()
+        }
+        
+        db.save_backtest_result(backtest_data)
+        
         # 更新任务状态为完成
         with backtest_tasks_lock:
             backtest_tasks[task_id]['status'] = 'completed'
@@ -513,6 +545,26 @@ def run_backtest_task(task_id: str, strategy_id: str, config: dict):
         
     except Exception as e:
         logger.error(f"回测任务 {task_id} 失败: {e}", exc_info=True)
+        
+        # 保存失败的回测记录到数据库
+        with backtest_tasks_lock:
+            task = backtest_tasks[task_id]
+        
+        backtest_data = {
+            'id': task_id,
+            'strategy_id': strategy_id,
+            'strategy_name': STRATEGY_REGISTRY[strategy_id]['name'],
+            'config': config,
+            'start_date': config['start_date'],
+            'end_date': config['end_date'],
+            'initial_capital': config.get('initial_capital', 1000000),
+            'status': 'failed',
+            'created_at': task['created_at'],
+            'completed_at': datetime.now().isoformat(),
+            'error_message': str(e)
+        }
+        
+        db.save_backtest_result(backtest_data)
         
         # 更新任务状态为失败
         with backtest_tasks_lock:
