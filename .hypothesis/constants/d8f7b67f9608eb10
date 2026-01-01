@@ -1,0 +1,4 @@
+# file: /Users/diyao/tradingbuddy/src/web/app.py
+# hypothesis_version: 6.148.8
+
+[404, 500, 5000, '/', '/api', '/api/*', '0.0.0.0', '1.0.0', 'Content-Type', 'DELETE', 'FLASK_DEBUG', 'GET', 'INTERNAL_ERROR', 'JSON_AS_ASCII', 'JSON_SORT_KEYS', 'NOT_FOUND', 'PORT', 'POST', 'PUT', 'True', '__main__', 'allow_headers', 'message', 'methods', 'origins', 'true', 'version', '服务器内部错误', '资源未找到']

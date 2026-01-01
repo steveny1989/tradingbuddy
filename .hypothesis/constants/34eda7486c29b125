@@ -1,0 +1,4 @@
+# file: /Users/diyao/tradingbuddy/src/web/routes/dashboard.py
+# hypothesis_version: 6.148.8
+
+[0.0, 100, 500, '/dashboard/summary', 'FETCH_ERROR', 'GET', 'account.json', 'created_at', 'daily_pnl', 'data_completeness', 'database', 'id', 'last_update', 'latest_date', 'max_drawdown', 'metrics', 'paper_trading', 'r', 'recent_backtests', 'running', 'strategy_name', 'total_return', 'total_stocks', 'total_value', '未知', '获取仪表板摘要失败']

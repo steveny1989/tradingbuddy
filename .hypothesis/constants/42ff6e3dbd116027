@@ -1,0 +1,4 @@
+# file: /Users/diyao/tradingbuddy/src/web/routes/test.py
+# hypothesis_version: 6.148.8
+
+['/test', '/test/validation', '1.0.0', 'API is working!', 'GET', 'POST', 'data', 'database', 'error_type', 'exception', 'message', 'name', 'notfound', 'validation', 'value', 'version', '请求体不能为空', '这是一个数据库错误示例', '这是一个未处理的异常示例', '这是一个资源未找到错误示例', '这是一个验证错误示例', '验证通过']

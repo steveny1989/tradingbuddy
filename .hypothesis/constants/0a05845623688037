@@ -1,0 +1,4 @@
+# file: /Users/diyao/tradingbuddy/src/web/utils/response.py
+# hypothesis_version: 6.148.8
+
+[200, 400, 'data', 'error', 'error_code', 'message', 'page', 'page_size', 'pagination', 'success', 'total', 'total_pages']

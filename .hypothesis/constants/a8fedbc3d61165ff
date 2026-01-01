@@ -1,0 +1,4 @@
+# file: /Users/diyao/tradingbuddy/src/web/routes/stocks.py
+# hypothesis_version: 6.148.8
+
+[400, 404, 500, 503, 100000000, ',', '.', '/stocks', '/stocks/<code>', '/stocks/<code>/daily', 'DATA_NOT_FOUND', 'DATA_NOT_READY', 'FETCH_ERROR', 'GET', 'INVALID_CODE', 'INVALID_DATE', 'INVALID_INDICATORS', 'STOCK_NOT_FOUND', 'close', 'code', 'date', 'end_date', 'full_code', 'indicators', 'industry', 'left', 'ma10', 'ma20', 'ma5', 'ma5,ma10,ma20,ma60', 'ma60', 'market', 'max_cap', 'min_cap', 'page', 'page_size', 'records', 'start_date', 'total_cap', '开始日期格式无效', '未指定有效的技术指标', '结束日期格式无效', '股票代码格式无效', '股票数据未初始化', '获取技术指标失败', '获取日线数据失败', '获取股票列表失败', '获取股票详情失败']

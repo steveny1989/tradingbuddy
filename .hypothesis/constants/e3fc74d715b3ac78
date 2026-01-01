@@ -1,0 +1,4 @@
+# file: /Users/diyao/tradingbuddy/src/data/database.py
+# hypothesis_version: 6.148.8
+
+[100, ' AND ', ' ORDER BY code, date', ' ORDER BY date ASC', ' WHERE ', '%Y-%m-%d', '%Y-%m-%d %H:%M:%S', ',', '0%', '?', 'amount', 'amplitude', 'append', 'change', 'close', 'code', 'completion_rate', 'data/a_share.db', 'date', 'date <= ?', 'date >= ?', 'downloaded_stocks', 'high', 'low', 'market_snapshot', 'open', 'pct_chg', 'replace', 'sh.000001', 'stock_basic', 'success', 'total_records', 'total_stocks', 'turnover', 'volume', '数据库表结构初始化完成', '数据库连接已关闭']

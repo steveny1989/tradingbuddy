@@ -1,0 +1,4 @@
+# file: /Users/diyao/tradingbuddy/src/web/utils/validation.py
+# hypothesis_version: 6.148.8
+
+[1000, '%Y%m%d', '%Y-%m-%d', 'sh', 'sz']
