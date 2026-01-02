@@ -36,7 +36,9 @@ def create_app():
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
     
     from src.web.routes import api_bp
+    from src.web.routes.diagnosis import diagnosis_bp
     app.register_blueprint(api_bp, url_prefix='/api')
+    app.register_blueprint(diagnosis_bp)
     
     # 初始化选股缓存
     from src.web.cache_manager import init_cache

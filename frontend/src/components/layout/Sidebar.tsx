@@ -8,6 +8,7 @@ import {
   DashboardOutlined,
   MonitorOutlined,
   DatabaseOutlined,
+  MedicineBoxOutlined,
 } from '@ant-design/icons';
 
 const { Sider } = Layout;
@@ -26,6 +27,11 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onCollapse }) => {
       key: '/',
       icon: <DashboardOutlined style={{ fontSize: '18px' }} />,
       label: '极简选股',
+    },
+    {
+      key: '/diagnosis',
+      icon: <MedicineBoxOutlined style={{ fontSize: '18px' }} />,
+      label: '个股诊断',
     },
     {
       key: '/paper-trading',

@@ -9,6 +9,7 @@ import SimpleStockDetail from './pages/SimpleStockDetail.premium'; // 使用 Pre
 import Dashboard from './pages/Dashboard';
 import StockList from './pages/StockList';
 import StockDetail from './pages/StockDetail';
+import StockDiagnosis from './pages/StockDiagnosis'; // 个股诊断页面
 import { tradingTheme } from './theme/tradingTheme';
 import './styles/premium.css'; // 导入 Premium 样式
 
@@ -25,6 +26,8 @@ function App() {
         <Route path="/" element={<AppLayout />}>
           {/* 极简选股助手作为首页 */}
           <Route index element={<SimplePicker />} />
+          {/* 个股诊断页面 */}
+          <Route path="diagnosis" element={<StockDiagnosis />} />
           {/* 极简股票详情页 */}
           <Route path="picker/stocks/:code" element={<SimpleStockDetail />} />
           {/* 原有的仪表板页面保留，可通过 /dashboard 访问 */}
