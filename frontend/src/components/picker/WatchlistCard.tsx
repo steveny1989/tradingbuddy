@@ -35,14 +35,14 @@ export interface Alert {
 export interface WatchlistItem {
   code: string;
   name: string;
-  price: number;
-  pct_change: number;
+  current_price: number;  // API返回的字段名
+  change_pct: number;     // API返回的字段名
   signal: SignalType;
-  added_at: string;
-  added_price: number;
-  stop_loss: number;
-  take_profit: number;
-  current_pnl?: number;  // 当前盈亏百分比
+  add_time: string;       // API返回的字段名
+  add_price: number;
+  stop_loss: number;      // 止损百分比（如-0.10）
+  take_profit: number;    // 止盈百分比（如0.20）
+  profit_pct: number;     // API返回的持仓盈亏百分比
   alert?: Alert;
 }
 
@@ -91,27 +91,21 @@ const WatchlistCard: React.FC<WatchlistCardProps> = ({
     }
   };
 
-  // 计算当前盈亏百分比
-  const calculatePnL = (currentPrice: number, addedPrice: number): number => {
-    return (currentPrice - addedPrice) / addedPrice;
-  };
-
   // 渲染价格信息
   const renderPrice = (record: WatchlistItem) => {
-    const color = getPriceChangeColor(record.pct_change);
-    const pnl = calculatePnL(record.price, record.added_price);
-    const pnlColor = getPriceChangeColor(pnl);
+    const color = getPriceChangeColor(record.change_pct);
+    const pnlColor = getPriceChangeColor(record.profit_pct);
     
     return (
       <Space direction="vertical" size={0} align="end">
         <Text strong style={{ fontSize: 16 }}>
-          {formatPrice(record.price, 2, false)}
+          {formatPrice(record.current_price, 2, false)}
         </Text>
         <Text style={{ color, fontSize: 12 }}>
-          {formatPercentage(record.pct_change)}
+          {formatPercentage(record.change_pct)}
         </Text>
         <Text style={{ color: pnlColor, fontSize: 11 }}>
-          持仓: {formatPercentage(pnl)}
+          持仓: {formatPercentage(record.profit_pct)}
         </Text>
       </Space>
     );
@@ -119,9 +113,13 @@ const WatchlistCard: React.FC<WatchlistCardProps> = ({
 
   // 渲染止损止盈进度条
   const renderStopLossProgress = (record: WatchlistItem) => {
-    const pnl = calculatePnL(record.price, record.added_price);
-    const stopLossPct = (record.stop_loss - record.added_price) / record.added_price;
-    const takeProfitPct = (record.take_profit - record.added_price) / record.added_price;
+    const pnl = record.profit_pct;  // 使用API返回的盈亏百分比
+    const stopLossPct = record.stop_loss;  // 已经是百分比
+    const takeProfitPct = record.take_profit;  // 已经是百分比
+    
+    // 计算止损和止盈的实际价格
+    const stopLossPrice = record.add_price * (1 + stopLossPct);
+    const takeProfitPrice = record.add_price * (1 + takeProfitPct);
     
     // 计算进度条位置 (0-100)
     // 止损线在0，止盈线在100，当前价格在中间
@@ -153,10 +151,10 @@ const WatchlistCard: React.FC<WatchlistCardProps> = ({
         />
         <Space size="small" style={{ width: '100%', justifyContent: 'space-between' }}>
           <Text type="secondary" style={{ fontSize: 11 }}>
-            止损: {formatPrice(record.stop_loss, 2, false)}
+            止损: {formatPrice(stopLossPrice, 2, false)}
           </Text>
           <Text type="secondary" style={{ fontSize: 11 }}>
-            止盈: {formatPrice(record.take_profit, 2, false)}
+            止盈: {formatPrice(takeProfitPrice, 2, false)}
           </Text>
         </Space>
       </Space>
@@ -199,7 +197,7 @@ const WatchlistCard: React.FC<WatchlistCardProps> = ({
           <Text strong className="stock-name">{record.name}</Text>
           <Text type="secondary" style={{ fontSize: 12 }}>{record.code}</Text>
           <Text type="secondary" style={{ fontSize: 11 }}>
-            {formatRelativeTime(record.added_at)}加入
+            {formatRelativeTime(record.add_time)}加入
           </Text>
         </Space>
       ),
