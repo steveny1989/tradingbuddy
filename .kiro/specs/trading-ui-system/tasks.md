@@ -92,12 +92,12 @@
     - 从数据库读取历史回测记录
     - _Requirements: 4.1, 11.7_
 
-  - [ ] 5.2 实现回测详情API
+  - [x] 5.2 实现回测详情API
     - 创建 `/api/backtest/{id}` GET端点
     - 返回完整的回测结果（指标、曲线、交易记录）
     - _Requirements: 4.2, 4.3, 4.4, 4.5, 4.6_
 
-  - [ ] 5.3 实现交易记录导出API
+  - [x] 5.3 实现交易记录导出API
     - 创建 `/api/backtest/{id}/export` GET端点
     - 生成CSV文件下载
     - _Requirements: 4.7_
@@ -109,19 +109,19 @@
     - _Requirements: 4.1, 4.2, 4.7_
 
 - [ ] 6. 模拟盘API实现
-  - [ ] 6.1 实现模拟盘状态API
+  - [x] 6.1 实现模拟盘状态API
     - 创建 `/api/paper-trading/status` GET端点
     - 返回账户状态、持仓、今日交易
     - 连接现有的模拟盘系统
     - _Requirements: 5.1, 5.2, 5.3, 11.8_
 
-  - [ ] 6.2 实现模拟盘控制API
+  - [x] 6.2 实现模拟盘控制API
     - 创建 `/api/paper-trading/start` POST端点
     - 创建 `/api/paper-trading/stop` POST端点
     - 创建 `/api/paper-trading/reset` POST端点
     - _Requirements: 5.7, 5.8_
 
-  - [ ] 6.3 实现模拟盘绩效API
+  - [x] 6.3 实现模拟盘绩效API
     - 创建 `/api/paper-trading/performance` GET端点
     - 返回资金曲线和绩效指标
     - _Requirements: 5.4_
