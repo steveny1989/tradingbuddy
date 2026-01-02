@@ -3,15 +3,28 @@
  * Premium UI Version with Glassmorphism and Animations
  */
 import React, { useState, useEffect } from 'react';
-import { Typography } from 'antd';
+import { Typography, message } from 'antd';
 import { DataParticles, EnergyOrb, StockSignalBox, StrategyCard } from '../components/premium';
 import type { SyncStatus } from '../components/picker/OneSyncButton';
 import type { DailyPick } from '../components/picker/DailyPicksCard';
-import type { WatchlistItem } from '../components/picker/WatchlistCard';
 import '../styles/premium.css';
 import './SimplePicker.css';
 
 const { Title } = Typography;
+
+// 自选股数据接口（简化版，用于localStorage）
+interface WatchlistStock {
+  code: string;
+  name: string;
+  current_price: number;
+  change_pct: number;
+  add_time: string;
+  add_price: number;
+  signal: 'buy' | 'sell' | 'hold';
+  stop_loss: number;
+  take_profit: number;
+  profit_pct: number;
+}
 
 const SimplePicker: React.FC = () => {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
@@ -20,7 +33,7 @@ const SimplePicker: React.FC = () => {
     lastUpdate: undefined,
   });
   const [dailyPicks, setDailyPicks] = useState<DailyPick[]>([]);
-  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
+  const [watchlist, setWatchlist] = useState<WatchlistStock[]>([]);
 
   useEffect(() => {
     loadSyncStatus();
@@ -91,15 +104,79 @@ const SimplePicker: React.FC = () => {
     }
   };
 
-  // 加载自选股
-  const loadWatchlist = async () => {
+  // 加载自选股（从localStorage）
+  const loadWatchlist = () => {
     try {
-      // TODO: 实现真实的自选股功能
-      // 目前返回空列表，用户需要从今日精选中添加股票到自选
-      setWatchlist([]);
+      const stored = localStorage.getItem('watchlist');
+      if (stored) {
+        const watchlistData: WatchlistStock[] = JSON.parse(stored);
+        setWatchlist(watchlistData);
+      } else {
+        setWatchlist([]);
+      }
     } catch (error) {
       console.error('加载自选股失败:', error);
+      setWatchlist([]);
     }
+  };
+
+  // 添加股票到自选
+  const handleAddToWatchlist = (stock: { code: string; name: string; price: number }) => {
+    console.log('handleAddToWatchlist 被调用:', stock);
+    try {
+      // 检查是否已存在
+      const existing = watchlist.find(item => item.code === stock.code);
+      if (existing) {
+        console.log('股票已存在:', existing);
+        message.warning(`${stock.name} 已在自选股中`);
+        return;
+      }
+
+      // 创建新的自选股项
+      const newWatchlistItem: WatchlistStock = {
+        code: stock.code,
+        name: stock.name,
+        current_price: stock.price,
+        change_pct: 0,
+        add_time: new Date().toISOString(),
+        add_price: stock.price,
+        signal: 'hold',
+        stop_loss: -0.10,  // 默认止损-10%
+        take_profit: 0.20,  // 默认止盈+20%
+        profit_pct: 0,
+      };
+
+      console.log('创建新的自选股项:', newWatchlistItem);
+
+      // 更新状态和localStorage
+      const newWatchlist = [...watchlist, newWatchlistItem];
+      setWatchlist(newWatchlist);
+      localStorage.setItem('watchlist', JSON.stringify(newWatchlist));
+      
+      console.log('自选股已更新，新列表:', newWatchlist);
+      message.success(`${stock.name} 已加入自选股`);
+    } catch (error) {
+      console.error('添加自选股失败:', error);
+      message.error('添加失败，请重试');
+    }
+  };
+
+  // 从自选股移除
+  const handleRemoveFromWatchlist = (code: string) => {
+    try {
+      const newWatchlist = watchlist.filter(item => item.code !== code);
+      setWatchlist(newWatchlist);
+      localStorage.setItem('watchlist', JSON.stringify(newWatchlist));
+      message.success('已移除');
+    } catch (error) {
+      console.error('移除自选股失败:', error);
+      message.error('移除失败，请重试');
+    }
+  };
+
+  // 检查股票是否在自选股中
+  const isInWatchlist = (code: string): boolean => {
+    return watchlist.some(item => item.code === code);
   };
 
   // 处理同步操作
@@ -184,15 +261,17 @@ const SimplePicker: React.FC = () => {
             </div>
           ) : (
             <div className="card-carousel">
-              {dailyPicks.map((pick) => (
+              {dailyPicks.map((pick, index) => (
                 <StrategyCard
-                  key={pick.code}
+                  key={`${pick.code}-${index}`}
                   code={pick.code}
                   name={pick.name}
                   price={pick.price}
                   confidenceScore={pick.confidence_score}
                   strategyName="多头排列启动"
                   reason={pick.reason}
+                  onAddToWatchlist={handleAddToWatchlist}
+                  isInWatchlist={isInWatchlist(pick.code)}
                 />
               ))}
             </div>
@@ -202,38 +281,67 @@ const SimplePicker: React.FC = () => {
         {/* 自选股监控 - 信号方块 */}
         <div className="glass-card" style={{ padding: 24 }}>
           <Title level={3} style={{ color: '#fff', marginBottom: 20 }}>
-            🚦 自选股监控 - 实时战况
+            🚦 自选股监控 - 实时战况 ({watchlist.length}只)
           </Title>
           
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-            gap: 16,
-          }}>
-            {watchlist.map((item) => {
-              // 计算盈亏
-              const profitPct = (item.price - item.added_price) / item.added_price;
-              
-              // 判断信号
-              let signal: 'buy' | 'sell' | 'hold' | 'stop_loss' = item.signal as any;
-              if (item.alert?.type === 'stop_loss') {
-                signal = 'stop_loss';
-              }
-              
-              return (
-                <StockSignalBox
-                  key={item.code}
-                  code={item.code}
-                  name={item.name}
-                  price={item.price}
-                  pctChange={item.pct_change}
-                  signal={signal}
-                  profitPct={profitPct}
-                  alert={item.alert}
-                />
-              );
-            })}
-          </div>
+          {watchlist.length === 0 ? (
+            <div style={{ color: '#9ca3af', textAlign: 'center', padding: 40 }}>
+              暂无自选股，在今日精选中点击"加入自选"即可添加
+            </div>
+          ) : (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+              gap: 16,
+            }}>
+              {watchlist.map((item, index) => {
+                // 判断信号
+                let signal: 'buy' | 'sell' | 'hold' | 'stop_loss' = item.signal;
+                
+                return (
+                  <div key={`${item.code}-${index}`} style={{ position: 'relative' }}>
+                    <StockSignalBox
+                      code={item.code}
+                      name={item.name}
+                      price={item.current_price}
+                      pctChange={item.change_pct}
+                      signal={signal}
+                      profitPct={item.profit_pct}
+                    />
+                    {/* 移除按钮 */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveFromWatchlist(item.code);
+                      }}
+                      style={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        width: 24,
+                        height: 24,
+                        borderRadius: '50%',
+                        background: 'rgba(239, 68, 68, 0.8)',
+                        border: 'none',
+                        color: '#fff',
+                        fontSize: 14,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        opacity: 0.7,
+                        transition: 'opacity 0.2s',
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                      onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+                    >
+                      ×
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>

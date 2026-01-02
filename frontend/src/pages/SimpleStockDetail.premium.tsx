@@ -4,11 +4,13 @@
  */
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Button, Typography, Tag, Spin, message } from 'antd';
+import { Button, Typography, Tag, Spin, message, Radio } from 'antd';
 import { ArrowLeftOutlined, StarOutlined, StarFilled } from '@ant-design/icons';
 import { motion } from 'framer-motion';
-import { DataParticles } from '../components/premium';
+import { DataParticles, StockRatingCard } from '../components/premium';
+import { KLineChart } from '../components/stocks/KLineChart';
 import { formatPrice, formatPercentage } from '../utils/picker';
+import type { DailyData } from '../services/stocks';
 import '../styles/premium.css';
 import './SimpleStockDetail.css';
 
@@ -39,6 +41,15 @@ interface KeyMetrics {
   debt_ratio: number;
 }
 
+interface StockRating {
+  score: number;
+  stars: number;
+  pros: string[];
+  cons: string[];
+  suggestion: string;
+  risk_level: string;
+}
+
 const SimpleStockDetail: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
@@ -46,14 +57,20 @@ const SimpleStockDetail: React.FC = () => {
   const [stockInfo, setStockInfo] = useState<StockInfo | null>(null);
   const [pickReason, setPickReason] = useState<PickReason | null>(null);
   const [keyMetrics, setKeyMetrics] = useState<KeyMetrics | null>(null);
+  const [stockRating, setStockRating] = useState<StockRating | null>(null);
   const [isInWatchlist, setIsInWatchlist] = useState(false);
+  const [klineData, setKlineData] = useState<DailyData[]>([]);
+  const [klineLoading, setKlineLoading] = useState(false);
+  const [timeRange, setTimeRange] = useState('3m');
 
   useEffect(() => {
     if (code) {
       loadStockDetail(code);
+      loadKlineData(code, timeRange);
+      loadStockRating(code);
       checkWatchlistStatus(code);
     }
-  }, [code]);
+  }, [code, timeRange]);
 
   const loadStockDetail = async (stockCode: string) => {
     try {
@@ -108,6 +125,43 @@ const SimpleStockDetail: React.FC = () => {
       message.error('加载失败，请稍后重试');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadKlineData = async (stockCode: string, period: string) => {
+    try {
+      setKlineLoading(true);
+      const response = await fetch(`http://localhost:5001/api/picker/stocks/${stockCode}/kline?period=${period}`);
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        setKlineData(result.data);
+      } else {
+        console.error('加载K线数据失败:', result.message);
+        setKlineData([]);
+      }
+    } catch (error) {
+      console.error('加载K线数据失败:', error);
+      setKlineData([]);
+    } finally {
+      setKlineLoading(false);
+    }
+  };
+
+  const loadStockRating = async (stockCode: string) => {
+    try {
+      const response = await fetch(`http://localhost:5001/api/picker/stocks/${stockCode}/rating`);
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        setStockRating(result.data);
+      } else {
+        console.error('加载股票评价失败:', result.message);
+        setStockRating(null);
+      }
+    } catch (error) {
+      console.error('加载股票评价失败:', error);
+      setStockRating(null);
     }
   };
 
@@ -237,7 +291,7 @@ const SimpleStockDetail: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* K线图占位 */}
+        {/* K线图 */}
         <motion.div
           className="glass-card"
           style={{ padding: 24, marginBottom: 24 }}
@@ -245,26 +299,58 @@ const SimpleStockDetail: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
         >
-          <Title level={4} style={{ color: '#fff', marginBottom: 20 }}>
-            📈 价格走势（最近3个月）
-          </Title>
-          <div style={{ 
-            height: 300, 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            background: 'rgba(59, 130, 246, 0.05)',
-            borderRadius: 12,
-            border: '1px dashed rgba(59, 130, 246, 0.3)'
-          }}>
-            <div style={{ textAlign: 'center' }}>
-              <Text style={{ color: '#9ca3af', display: 'block', marginBottom: 8 }}>K线图功能开发中...</Text>
-              <Text style={{ color: '#6b7280', fontSize: 12 }}>
-                将显示最近3个月的K线图，并标注买入/卖出信号点
-              </Text>
-            </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <Title level={4} style={{ color: '#fff', margin: 0 }}>
+              📈 价格走势
+            </Title>
+            <Radio.Group value={timeRange} onChange={(e) => setTimeRange(e.target.value)} buttonStyle="solid">
+              <Radio.Button value="1m">1个月</Radio.Button>
+              <Radio.Button value="3m">3个月</Radio.Button>
+              <Radio.Button value="6m">6个月</Radio.Button>
+              <Radio.Button value="1y">1年</Radio.Button>
+            </Radio.Group>
           </div>
+          {klineLoading ? (
+            <div style={{ 
+              height: 400, 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center'
+            }}>
+              <Spin tip="加载K线数据..." />
+            </div>
+          ) : klineData.length > 0 ? (
+            <KLineChart 
+              data={klineData} 
+              timeRange={timeRange}
+              onTimeRangeChange={setTimeRange}
+            />
+          ) : (
+            <div style={{ 
+              height: 300, 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              background: 'rgba(59, 130, 246, 0.05)',
+              borderRadius: 12,
+              border: '1px dashed rgba(59, 130, 246, 0.3)'
+            }}>
+              <Text style={{ color: '#9ca3af' }}>暂无K线数据</Text>
+            </div>
+          )}
         </motion.div>
+
+        {/* 股票评价 */}
+        {stockRating && (
+          <StockRatingCard
+            score={stockRating.score}
+            stars={stockRating.stars}
+            pros={stockRating.pros}
+            cons={stockRating.cons}
+            suggestion={stockRating.suggestion}
+            riskLevel={stockRating.risk_level}
+          />
+        )}
 
         {/* 选股理由 */}
         {pickReason && (
@@ -314,10 +400,10 @@ const SimpleStockDetail: React.FC = () => {
               }}>
                 <Text style={{ color: '#9ca3af', display: 'block', marginBottom: 8 }}>市盈率 (PE)</Text>
                 <Text style={{ color: '#fff', fontSize: 24, fontWeight: 'bold', display: 'block', marginBottom: 4 }}>
-                  {keyMetrics.pe_ratio.toFixed(2)}
+                  {keyMetrics.pe_ratio > 0 ? keyMetrics.pe_ratio.toFixed(2) : '数据缺失'}
                 </Text>
                 <Text style={{ color: '#6b7280', fontSize: 12 }}>
-                  {keyMetrics.pe_ratio < 15 ? '估值较低' : keyMetrics.pe_ratio < 30 ? '估值合理' : '估值较高'}
+                  {keyMetrics.pe_ratio > 0 ? (keyMetrics.pe_ratio < 15 ? '估值较低' : keyMetrics.pe_ratio < 30 ? '估值合理' : '估值较高') : '-'}
                 </Text>
               </div>
               <div style={{ 
@@ -328,10 +414,10 @@ const SimpleStockDetail: React.FC = () => {
               }}>
                 <Text style={{ color: '#9ca3af', display: 'block', marginBottom: 8 }}>市净率 (PB)</Text>
                 <Text style={{ color: '#fff', fontSize: 24, fontWeight: 'bold', display: 'block', marginBottom: 4 }}>
-                  {keyMetrics.pb_ratio.toFixed(2)}
+                  {keyMetrics.pb_ratio > 0 ? keyMetrics.pb_ratio.toFixed(2) : '数据缺失'}
                 </Text>
                 <Text style={{ color: '#6b7280', fontSize: 12 }}>
-                  {keyMetrics.pb_ratio < 1 ? '破净' : keyMetrics.pb_ratio < 3 ? '正常' : '偏高'}
+                  {keyMetrics.pb_ratio > 0 ? (keyMetrics.pb_ratio < 1 ? '破净' : keyMetrics.pb_ratio < 3 ? '正常' : '偏高') : '-'}
                 </Text>
               </div>
               <div style={{ 
@@ -342,10 +428,10 @@ const SimpleStockDetail: React.FC = () => {
               }}>
                 <Text style={{ color: '#9ca3af', display: 'block', marginBottom: 8 }}>净资产收益率 (ROE)</Text>
                 <Text style={{ color: '#fff', fontSize: 24, fontWeight: 'bold', display: 'block', marginBottom: 4 }}>
-                  {formatPercentage(keyMetrics.roe)}
+                  {keyMetrics.roe > 0 ? `${keyMetrics.roe.toFixed(2)}%` : '数据缺失'}
                 </Text>
                 <Text style={{ color: '#6b7280', fontSize: 12 }}>
-                  {keyMetrics.roe > 0.15 ? '盈利能力强' : keyMetrics.roe > 0.10 ? '盈利能力一般' : '盈利能力弱'}
+                  {keyMetrics.roe > 0 ? (keyMetrics.roe > 15 ? '盈利能力强' : keyMetrics.roe > 10 ? '盈利能力一般' : '盈利能力弱') : '-'}
                 </Text>
               </div>
               <div style={{ 
@@ -356,10 +442,10 @@ const SimpleStockDetail: React.FC = () => {
               }}>
                 <Text style={{ color: '#9ca3af', display: 'block', marginBottom: 8 }}>资产负债率</Text>
                 <Text style={{ color: '#fff', fontSize: 24, fontWeight: 'bold', display: 'block', marginBottom: 4 }}>
-                  {formatPercentage(keyMetrics.debt_ratio)}
+                  {keyMetrics.debt_ratio > 0 ? `${keyMetrics.debt_ratio.toFixed(2)}%` : '数据缺失'}
                 </Text>
                 <Text style={{ color: '#6b7280', fontSize: 12 }}>
-                  {keyMetrics.debt_ratio < 0.5 ? '负债健康' : keyMetrics.debt_ratio < 0.7 ? '负债适中' : '负债偏高'}
+                  {keyMetrics.debt_ratio > 0 ? (keyMetrics.debt_ratio < 50 ? '负债健康' : keyMetrics.debt_ratio < 70 ? '负债适中' : '负债偏高') : '-'}
                 </Text>
               </div>
             </div>

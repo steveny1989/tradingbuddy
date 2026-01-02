@@ -13,6 +13,8 @@ interface StrategyCardProps {
   confidenceScore: number;
   strategyName: string;
   reason: string;
+  onAddToWatchlist?: (stock: { code: string; name: string; price: number }) => void;
+  isInWatchlist?: boolean;
 }
 
 const StrategyCard: React.FC<StrategyCardProps> = ({
@@ -22,6 +24,8 @@ const StrategyCard: React.FC<StrategyCardProps> = ({
   confidenceScore,
   strategyName,
   reason,
+  onAddToWatchlist,
+  isInWatchlist = false,
 }) => {
   const navigate = useNavigate();
 
@@ -33,6 +37,24 @@ const StrategyCard: React.FC<StrategyCardProps> = ({
 
   const handleClick = () => {
     navigate(`/picker/stocks/${code}`);
+  };
+
+  const handleAddToWatchlist = (e: React.MouseEvent) => {
+    console.log('StrategyCard handleAddToWatchlist 被调用');
+    console.log('isInWatchlist:', isInWatchlist);
+    console.log('onAddToWatchlist:', onAddToWatchlist);
+    console.log('stock info:', { code, name, price });
+    e.preventDefault();
+    e.stopPropagation(); // 阻止事件冒泡，避免触发卡片点击
+    if (onAddToWatchlist && !isInWatchlist) {
+      console.log('调用 onAddToWatchlist 回调');
+      onAddToWatchlist({ code, name, price });
+    } else {
+      console.log('未调用回调，原因:', { 
+        hasCallback: !!onAddToWatchlist, 
+        isInWatchlist 
+      });
+    }
   };
 
   return (
@@ -85,21 +107,63 @@ const StrategyCard: React.FC<StrategyCardProps> = ({
         </div>
       </div>
 
-      {/* 策略标签 */}
+      {/* 策略标签和加入自选按钮 */}
       <div
         style={{
-          display: 'inline-block',
-          padding: '6px 12px',
-          borderRadius: 8,
-          background: 'rgba(59, 130, 246, 0.2)',
-          border: '1px solid rgba(59, 130, 246, 0.5)',
-          color: '#60a5fa',
-          fontSize: 14,
-          fontWeight: 600,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
           marginBottom: 12,
         }}
       >
-        {strategyName}
+        <div
+          style={{
+            display: 'inline-block',
+            padding: '6px 12px',
+            borderRadius: 8,
+            background: 'rgba(59, 130, 246, 0.2)',
+            border: '1px solid rgba(59, 130, 246, 0.5)',
+            color: '#60a5fa',
+            fontSize: 14,
+            fontWeight: 600,
+          }}
+        >
+          {strategyName}
+        </div>
+        
+        {/* 加入自选按钮 */}
+        <button
+          onClick={handleAddToWatchlist}
+          disabled={isInWatchlist}
+          style={{
+            position: 'relative',
+            zIndex: 10,
+            padding: '6px 12px',
+            borderRadius: 8,
+            background: isInWatchlist 
+              ? 'rgba(107, 114, 128, 0.2)' 
+              : 'rgba(16, 185, 129, 0.2)',
+            border: isInWatchlist 
+              ? '1px solid rgba(107, 114, 128, 0.5)' 
+              : '1px solid rgba(16, 185, 129, 0.5)',
+            color: isInWatchlist ? '#6b7280' : '#10b981',
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: isInWatchlist ? 'not-allowed' : 'pointer',
+            outline: 'none',
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={(e) => {
+            if (!isInWatchlist) {
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+        >
+          {isInWatchlist ? '✓ 已加入' : '+ 加入自选'}
+        </button>
       </div>
 
       {/* 大白话理由 */}

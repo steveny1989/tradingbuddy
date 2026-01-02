@@ -6,6 +6,7 @@ User-Friendly Stock Picker API Routes
 """
 from flask import request, jsonify
 from datetime import datetime
+import pandas as pd
 from . import api_bp
 from src.data.database import StockDatabase
 from src.business.strategies.volume_shrink import VolumeShrinkStrategy
@@ -1020,7 +1021,7 @@ def get_picker_stock_detail(code: str):
         key_metrics = None
         try:
             financial_data = db.conn.execute("""
-                SELECT pe_ratio, pb_ratio, roe, debt_ratio
+                SELECT pe_ratio, pb_ratio, roe, debt_to_asset_ratio
                 FROM financial_indicators
                 WHERE code = ?
                 ORDER BY report_date DESC
@@ -1056,5 +1057,349 @@ def get_picker_stock_detail(code: str):
         
     except Exception as e:
         logger.error(f"获取股票详情失败: {e}", exc_info=True)
+        friendly_error = make_error_friendly(str(e))
+        return error_response(friendly_error, 'FETCH_ERROR', 500)
+
+
+def calculate_stock_rating(code: str, stock_data: dict, key_metrics: dict) -> dict:
+    """
+    计算股票综合评价
+    
+    Args:
+        code: 股票代码
+        stock_data: 股票基本数据（价格、成交量等）
+        key_metrics: 关键财务指标
+        
+    Returns:
+        评价字典，包含评分、优点、缺点、建议等
+    """
+    try:
+        score = 50  # 基础分50分
+        pros = []  # 优点列表
+        cons = []  # 缺点列表
+        
+        # 1. 评估财务指标（40分）
+        if key_metrics:
+            # PE市盈率评估（10分）
+            pe = key_metrics.get('pe_ratio', 0)
+            if 0 < pe < 15:
+                score += 10
+                pros.append(f"估值较低（PE {pe:.1f}倍）")
+            elif 15 <= pe < 30:
+                score += 5
+                pros.append(f"估值合理（PE {pe:.1f}倍）")
+            elif pe >= 30:
+                cons.append(f"估值偏高（PE {pe:.1f}倍）")
+            
+            # PB市净率评估（10分）
+            pb = key_metrics.get('pb_ratio', 0)
+            if 0 < pb < 1:
+                score += 10
+                pros.append(f"破净股（PB {pb:.2f}）")
+            elif 1 <= pb < 3:
+                score += 5
+                pros.append(f"市净率健康（PB {pb:.2f}）")
+            elif pb >= 3:
+                cons.append(f"市净率偏高（PB {pb:.2f}）")
+            
+            # ROE净资产收益率评估（10分）
+            roe = key_metrics.get('roe', 0)
+            if roe > 15:  # ROE > 15%
+                score += 10
+                pros.append(f"盈利能力强（ROE {roe:.1f}%）")
+            elif roe > 10:  # ROE > 10%
+                score += 5
+                pros.append(f"盈利能力一般（ROE {roe:.1f}%）")
+            elif roe > 0:
+                cons.append(f"盈利能力弱（ROE {roe:.1f}%）")
+            else:
+                cons.append("当前亏损")
+            
+            # 资产负债率评估（10分）
+            debt = key_metrics.get('debt_ratio', 0)
+            if debt < 30:  # 负债率 < 30%
+                score += 10
+                pros.append(f"负债健康（{debt:.1f}%）")
+            elif debt < 50:  # 负债率 < 50%
+                score += 5
+                pros.append(f"负债适中（{debt:.1f}%）")
+            elif debt < 70:  # 负债率 < 70%
+                cons.append(f"负债偏高（{debt:.1f}%）")
+            else:
+                cons.append(f"负债很高（{debt:.1f}%）")
+        
+        # 2. 评估技术指标（30分）
+        # 获取最近数据计算技术指标
+        code_without_prefix = code.split('.')[1] if '.' in code else code
+        stock_info = db.conn.execute(
+            "SELECT market FROM stock_basic WHERE code = ?",
+            (code_without_prefix,)
+        ).fetchone()
+        
+        if stock_info:
+            market = stock_info[0]
+            full_code = code if '.' in code else f"{market}.{code_without_prefix}"
+            df = db.get_daily_data(full_code)
+            
+            if not df.empty and len(df) >= 20:
+                df = df.sort_values('date').tail(20)
+                
+                # 计算均线
+                df['ma5'] = df['close'].rolling(window=5).mean()
+                df['ma20'] = df['close'].rolling(window=20).mean()
+                latest = df.iloc[-1]
+                
+                # 均线趋势（15分）
+                if latest['ma5'] > latest['ma20']:
+                    score += 15
+                    pros.append("短期趋势向上（金叉）")
+                elif latest['ma5'] < latest['ma20'] * 0.95:
+                    cons.append("短期趋势向下（死叉）")
+                else:
+                    score += 5
+                    pros.append("趋势震荡")
+                
+                # 成交量评估（15分）
+                avg_volume = df['volume'].tail(5).mean()
+                if avg_volume > 0:
+                    volume_ratio = float(latest['volume']) / avg_volume
+                    if volume_ratio > 1.5:
+                        score += 15
+                        pros.append(f"成交活跃（放量{volume_ratio:.1f}倍）")
+                    elif volume_ratio > 0.8:
+                        score += 8
+                    else:
+                        cons.append("成交量萎缩")
+        
+        # 3. 涨跌幅评估（20分）
+        pct_change = stock_data.get('pct_change', 0)
+        if -0.03 < pct_change < 0.03:
+            score += 10
+            pros.append("价格稳定")
+        elif 0.03 <= pct_change < 0.07:
+            score += 15
+            pros.append(f"温和上涨（+{pct_change*100:.1f}%）")
+        elif pct_change >= 0.07:
+            score += 5
+            cons.append(f"短期涨幅较大（+{pct_change*100:.1f}%）")
+        elif pct_change < -0.05:
+            cons.append(f"短期跌幅较大（{pct_change*100:.1f}%）")
+        
+        # 确保分数在0-100之间
+        score = max(0, min(100, score))
+        
+        # 生成星级（1-5星）
+        stars = max(1, min(5, int(score / 20) + 1))
+        
+        # 生成投资建议
+        if score >= 80:
+            suggestion = "综合表现优秀，适合中长线持有"
+            risk_level = "较低"
+        elif score >= 60:
+            suggestion = "综合表现良好，可适量配置"
+            risk_level = "中等"
+        elif score >= 40:
+            suggestion = "综合表现一般，建议观望"
+            risk_level = "中等"
+        else:
+            suggestion = "综合表现较弱，谨慎参与"
+            risk_level = "较高"
+        
+        return {
+            'score': score,
+            'stars': stars,
+            'pros': pros[:5],  # 最多5个优点
+            'cons': cons[:5],  # 最多5个缺点
+            'suggestion': suggestion,
+            'risk_level': risk_level
+        }
+        
+    except Exception as e:
+        logger.error(f"计算股票评价失败: {e}", exc_info=True)
+        # 返回默认评价
+        return {
+            'score': 50,
+            'stars': 3,
+            'pros': [],
+            'cons': [],
+            'suggestion': '暂无足够数据进行评价',
+            'risk_level': '未知'
+        }
+
+
+@api_bp.route('/picker/stocks/<code>/rating', methods=['GET'])
+def get_stock_rating(code: str):
+    """
+    获取股票综合评价
+    
+    Path Parameters:
+        - code: 股票代码（支持 sz.000001 或 000001 格式）
+    
+    Returns:
+        {
+            "success": true,
+            "data": {
+                "score": int,  // 综合评分 0-100
+                "stars": int,  // 星级 1-5
+                "pros": [str],  // 优点列表
+                "cons": [str],  // 缺点列表
+                "suggestion": str,  // 投资建议
+                "risk_level": str  // 风险等级
+            }
+        }
+    """
+    try:
+        # 提取代码（不带前缀）
+        code_without_prefix = code.split('.')[1] if '.' in code else code
+        
+        # 获取股票基本信息
+        stock_info = db.conn.execute(
+            "SELECT name, market FROM stock_basic WHERE code = ?",
+            (code_without_prefix,)
+        ).fetchone()
+        
+        if not stock_info:
+            return error_response('股票不存在', 'NOT_FOUND', 404)
+        
+        name, market = stock_info
+        full_code = code if '.' in code else f"{market}.{code_without_prefix}"
+        
+        # 获取日线数据
+        df = db.get_daily_data(full_code)
+        if df.empty:
+            return error_response('暂无数据', 'NO_DATA', 404)
+        
+        latest = df.iloc[-1]
+        prev = df.iloc[-2] if len(df) >= 2 else latest
+        
+        # 构建股票数据
+        stock_data = {
+            'price': float(latest['close']),
+            'pct_change': (float(latest['close']) - float(prev['close'])) / float(prev['close']) if float(prev['close']) > 0 else 0.0,
+            'volume': float(latest['volume'])
+        }
+        
+        # 获取财务指标（从真实数据库）
+        key_metrics = None
+        try:
+            financial_data = db.conn.execute("""
+                SELECT pe_ratio, pb_ratio, roe, debt_to_asset_ratio
+                FROM financial_indicators
+                WHERE code = ?
+                ORDER BY report_date DESC
+                LIMIT 1
+            """, (code_without_prefix,)).fetchone()
+            
+            if financial_data:
+                key_metrics = {
+                    'pe_ratio': float(financial_data[0]) if financial_data[0] else 0.0,
+                    'pb_ratio': float(financial_data[1]) if financial_data[1] else 0.0,
+                    'roe': float(financial_data[2]) if financial_data[2] else 0.0,
+                    'debt_ratio': float(financial_data[3]) if financial_data[3] else 0.0
+                }
+        except Exception as e:
+            logger.debug(f"获取财务指标失败: {e}")
+        
+        # 计算评价
+        rating = calculate_stock_rating(code, stock_data, key_metrics)
+        
+        return success_response(rating)
+        
+    except Exception as e:
+        logger.error(f"获取股票评价失败: {e}", exc_info=True)
+        friendly_error = make_error_friendly(str(e))
+        return error_response(friendly_error, 'FETCH_ERROR', 500)
+
+
+@api_bp.route('/picker/stocks/<code>/kline', methods=['GET'])
+def get_picker_stock_kline(code: str):
+    """
+    获取股票K线数据
+    
+    Path Parameters:
+        - code: 股票代码（支持 sz.000001 或 000001 格式）
+    
+    Query Parameters:
+        - period: 时间周期，可选值: 1m(1个月), 3m(3个月), 6m(6个月), 1y(1年), 默认3m
+    
+    Returns:
+        {
+            "success": true,
+            "data": [
+                {
+                    "date": str,
+                    "open": float,
+                    "high": float,
+                    "low": float,
+                    "close": float,
+                    "volume": float
+                },
+                ...
+            ]
+        }
+    """
+    try:
+        from datetime import datetime, timedelta
+        
+        # 获取时间周期参数
+        period = request.args.get('period', '3m')
+        
+        # 计算起始日期
+        end_date = datetime.now()
+        if period == '1m':
+            start_date = end_date - timedelta(days=30)
+        elif period == '6m':
+            start_date = end_date - timedelta(days=180)
+        elif period == '1y':
+            start_date = end_date - timedelta(days=365)
+        else:  # 默认3m
+            start_date = end_date - timedelta(days=90)
+        
+        # 提取代码（不带前缀）
+        code_without_prefix = code.split('.')[1] if '.' in code else code
+        
+        # 获取股票基本信息
+        stock_info = db.conn.execute(
+            "SELECT name, market FROM stock_basic WHERE code = ?",
+            (code_without_prefix,)
+        ).fetchone()
+        
+        if not stock_info:
+            return error_response('股票不存在', 'NOT_FOUND', 404)
+        
+        name, market = stock_info
+        
+        # 构建完整代码
+        full_code = code if '.' in code else f"{market}.{code_without_prefix}"
+        
+        # 获取日线数据
+        df = db.get_daily_data(full_code)
+        if df.empty:
+            return error_response('暂无数据', 'NO_DATA', 404)
+        
+        # 过滤日期范围
+        df['date'] = pd.to_datetime(df['date'])
+        df = df[df['date'] >= start_date]
+        df = df.sort_values('date')
+        
+        # 去重：如果有重复日期，保留最新的数据
+        df = df.drop_duplicates(subset=['date'], keep='last')
+        
+        # 转换为前端需要的格式
+        kline_data = []
+        for _, row in df.iterrows():
+            kline_data.append({
+                'date': row['date'].strftime('%Y-%m-%d'),
+                'open': float(row['open']),
+                'high': float(row['high']),
+                'low': float(row['low']),
+                'close': float(row['close']),
+                'volume': float(row['volume'])
+            })
+        
+        return success_response(kline_data)
+        
+    except Exception as e:
+        logger.error(f"获取K线数据失败: {e}", exc_info=True)
         friendly_error = make_error_friendly(str(e))
         return error_response(friendly_error, 'FETCH_ERROR', 500)
