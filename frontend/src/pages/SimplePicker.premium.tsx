@@ -71,11 +71,11 @@ const SimplePicker: React.FC = () => {
           return {
             code: item.code,
             name: item.name,
-            price: item.price,
-            pct_change: 0,
-            confidence_score: item.confidence_score,
+            price: item.price || 0,  // 添加默认值防止undefined
+            pct_change: item.pct_change || 0,
+            confidence_score: item.confidence_score || 0,
             signal_strength: signal_strength,
-            reason: item.reason,
+            reason: item.reason || '符合策略条件',
           };
         });
         

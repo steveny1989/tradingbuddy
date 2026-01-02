@@ -124,7 +124,7 @@ const StockSignalBox: React.FC<StockSignalBoxProps> = ({
           marginBottom: 4,
         }}
       >
-        ¥{price.toFixed(2)}
+        ¥{(price || 0).toFixed(2)}
       </div>
 
       <div
@@ -135,7 +135,7 @@ const StockSignalBox: React.FC<StockSignalBoxProps> = ({
           marginBottom: 12,
         }}
       >
-        {pctChange >= 0 ? '+' : ''}{(pctChange * 100).toFixed(2)}%
+        {(pctChange || 0) >= 0 ? '+' : ''}{((pctChange || 0) * 100).toFixed(2)}%
       </div>
 
       {/* 盈亏显示 */}
