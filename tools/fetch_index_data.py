@@ -163,7 +163,7 @@ def fetch_global_index_data(symbol: str, start_date: str = '20200101') -> pd.Dat
     获取全球指数历史数据
     
     Args:
-        symbol: 指数代码，如 'DJIA', 'SPX', 'N225'
+        symbol: 指数中文名称，如 '道琼斯', '标普500', '日经225'
         start_date: 开始日期
     
     Returns:
@@ -172,7 +172,7 @@ def fetch_global_index_data(symbol: str, start_date: str = '20200101') -> pd.Dat
     try:
         logger.info(f"正在获取全球指数 {symbol} 的数据...")
         
-        # 使用akshare获取全球指数数据（不支持日期参数）
+        # 使用akshare获取全球指数数据
         df = ak.index_global_hist_em(symbol=symbol)
         
         if df.empty:
@@ -182,12 +182,10 @@ def fetch_global_index_data(symbol: str, start_date: str = '20200101') -> pd.Dat
         # 重命名列以匹配我们的格式
         column_mapping = {
             '日期': 'date',
-            '收盘': 'close',
-            '开盘': 'open',
+            '最新价': 'close',  # 注意：这里是'最新价'而不是'收盘'
+            '今开': 'open',
             '最高': 'high',
             '最低': 'low',
-            '成交量': 'volume',
-            '涨跌幅': 'pct_chg'
         }
         
         df = df.rename(columns=column_mapping)
@@ -205,13 +203,8 @@ def fetch_global_index_data(symbol: str, start_date: str = '20200101') -> pd.Dat
                 logger.warning(f"{symbol} 缺少列 {col}")
                 df[col] = 0
         
-        # 处理volume列
-        if 'volume' in df.columns:
-            df['volume'] = pd.to_numeric(df['volume'], errors='coerce').fillna(0).astype(int)
-        else:
-            df['volume'] = 0
-        
-        # 添加amount列（全球指数通常没有成交额）
+        # 添加volume和amount列（全球指数通常没有成交量和成交额）
+        df['volume'] = 0
         df['amount'] = 0
         
         # 选择需要的列并确保顺序正确
@@ -221,6 +214,9 @@ def fetch_global_index_data(symbol: str, start_date: str = '20200101') -> pd.Dat
         df = df.sort_values('date')
         
         logger.info(f"✅ {symbol} 获取成功，共 {len(df)} 条数据")
+        logger.info(f"   日期范围: {df['date'].min()} 至 {df['date'].max()}")
+        logger.info(f"   最新收盘价: {df.iloc[-1]['close']}")
+        
         return df
         
     except Exception as e:

@@ -1,11 +1,13 @@
 /**
  * 股票列表表格组件
  */
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Table, Tag, Button, Space, Tooltip } from 'antd';
 import { StarOutlined, StarFilled, RiseOutlined, FallOutlined } from '@ant-design/icons';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import type { Stock } from '../../services/stocks';
+import { TRADING_COLORS } from '../../theme/tradingTheme';
+import { Sparkline } from './Sparkline';
 
 interface StockTableProps {
   data: Stock[];
@@ -26,6 +28,27 @@ const StockTable: React.FC<StockTableProps> = ({
   onChange,
   onToggleFavorite,
 }) => {
+  // 跟踪正在移除的自选股（用于淡出动画）
+  const [removingFavorites, setRemovingFavorites] = useState<Set<string>>(new Set());
+
+  const handleToggleFavorite = (code: string) => {
+    // 如果是取消自选，先添加淡出动画
+    if (favorites.has(code)) {
+      setRemovingFavorites(new Set([...removingFavorites, code]));
+      // 300ms 后执行实际的取消操作
+      setTimeout(() => {
+        onToggleFavorite(code);
+        setRemovingFavorites((prev) => {
+          const next = new Set(prev);
+          next.delete(code);
+          return next;
+        });
+      }, 300);
+    } else {
+      // 添加自选立即执行
+      onToggleFavorite(code);
+    }
+  };
   const columns: ColumnsType<Stock> = [
     {
       title: '自选',
@@ -39,7 +62,7 @@ const StockTable: React.FC<StockTableProps> = ({
           icon={favorites.has(record.code) ? <StarFilled style={{ color: '#faad14' }} /> : <StarOutlined />}
           onClick={(e) => {
             e.stopPropagation();
-            onToggleFavorite(record.code);
+            handleToggleFavorite(record.code);
           }}
         />
       ),
@@ -62,6 +85,20 @@ const StockTable: React.FC<StockTableProps> = ({
       render: (name: string) => <span style={{ fontWeight: 500 }}>{name}</span>,
     },
     {
+      title: '走势',
+      key: 'sparkline',
+      width: 100,
+      align: 'center',
+      render: (_, record) => (
+        <Sparkline 
+          data={record.sparkline || []} 
+          width={80} 
+          height={30}
+          showArea={true}
+        />
+      ),
+    },
+    {
       title: '涨跌幅',
       dataIndex: 'pct_chg',
       key: 'pct_chg',
@@ -69,7 +106,7 @@ const StockTable: React.FC<StockTableProps> = ({
       align: 'right',
       render: (value: number) => {
         if (value === null || value === undefined) return <span style={{ color: '#999' }}>-</span>;
-        const color = value > 0 ? '#cf1322' : value < 0 ? '#3f8600' : '#666';
+        const color = value > 0 ? TRADING_COLORS.UP : value < 0 ? TRADING_COLORS.DOWN : TRADING_COLORS.STABLE;
         const icon = value > 0 ? <RiseOutlined /> : value < 0 ? <FallOutlined /> : null;
         const prefix = value > 0 ? '+' : '';
         return (
@@ -123,7 +160,7 @@ const StockTable: React.FC<StockTableProps> = ({
       align: 'right',
       render: (value: number) => {
         if (!value) return <span style={{ color: '#999' }}>-</span>;
-        const color = value < 15 ? '#3f8600' : value < 30 ? '#666' : '#cf1322';
+        const color = value < 15 ? TRADING_COLORS.DOWN : value < 30 ? TRADING_COLORS.STABLE : TRADING_COLORS.UP;
         return <span style={{ color, fontFamily: 'monospace' }}>{value.toFixed(2)}</span>;
       },
       sorter: (a, b) => ((a as any).pe_ttm || 0) - ((b as any).pe_ttm || 0),
@@ -136,7 +173,7 @@ const StockTable: React.FC<StockTableProps> = ({
       align: 'right',
       render: (value: number) => {
         if (!value) return <span style={{ color: '#999' }}>-</span>;
-        const color = value < 1 ? '#3f8600' : value < 3 ? '#666' : '#cf1322';
+        const color = value < 1 ? TRADING_COLORS.DOWN : value < 3 ? TRADING_COLORS.STABLE : TRADING_COLORS.UP;
         return <span style={{ color, fontFamily: 'monospace' }}>{value.toFixed(2)}</span>;
       },
       sorter: (a, b) => ((a as any).pb || 0) - ((b as any).pb || 0),
@@ -168,9 +205,15 @@ const StockTable: React.FC<StockTableProps> = ({
       })}
       size="middle"
       scroll={{ x: 1000 }}
-      rowClassName={(record) => 
-        favorites.has(record.code) ? 'favorite-row' : ''
-      }
+      rowClassName={(record) => {
+        const isFavorite = favorites.has(record.code);
+        const isRemoving = removingFavorites.has(record.code);
+        
+        if (isRemoving) {
+          return 'favorite-row favorite-row-removing';
+        }
+        return isFavorite ? 'favorite-row' : '';
+      }}
     />
   );
 };

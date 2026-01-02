@@ -14,6 +14,7 @@ from . import dashboard  # 仪表板路由
 from . import strategies  # 策略管理路由
 from . import backtest  # 回测结果路由
 from . import paper_trading  # 模拟盘路由
+from . import picker  # 极简选股助手路由
 
 # 后续任务中会添加更多路由
 # from . import data_management

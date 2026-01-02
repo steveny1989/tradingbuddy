@@ -6,9 +6,6 @@ import { Layout, Menu } from 'antd';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   DashboardOutlined,
-  StockOutlined,
-  ThunderboltOutlined,
-  LineChartOutlined,
   MonitorOutlined,
   DatabaseOutlined,
 } from '@ant-design/icons';
@@ -27,32 +24,17 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onCollapse }) => {
   const menuItems = [
     {
       key: '/',
-      icon: <DashboardOutlined />,
-      label: '仪表板',
-    },
-    {
-      key: '/stocks',
-      icon: <StockOutlined />,
-      label: '股票浏览',
-    },
-    {
-      key: '/strategies',
-      icon: <ThunderboltOutlined />,
-      label: '策略管理',
-    },
-    {
-      key: '/backtest',
-      icon: <LineChartOutlined />,
-      label: '回测结果',
+      icon: <DashboardOutlined style={{ fontSize: '18px' }} />,
+      label: '极简选股',
     },
     {
       key: '/paper-trading',
-      icon: <MonitorOutlined />,
+      icon: <MonitorOutlined style={{ fontSize: '18px' }} />,
       label: '模拟盘',
     },
     {
       key: '/data',
-      icon: <DatabaseOutlined />,
+      icon: <DatabaseOutlined style={{ fontSize: '18px' }} />,
       label: '数据管理',
     },
   ];

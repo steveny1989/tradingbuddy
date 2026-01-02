@@ -21,11 +21,11 @@ const AppLayout: React.FC = () => {
         
         <Content
           style={{
-            margin: '24px 16px',
-            padding: 24,
+            margin: '12px',
+            padding: 16,
             minHeight: 280,
-            background: '#fff',
-            borderRadius: '8px',
+            background: 'transparent',
+            borderRadius: '4px',
           }}
         >
           <Outlet />

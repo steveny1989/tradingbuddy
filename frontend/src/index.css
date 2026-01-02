@@ -16,20 +16,87 @@ body {
   min-height: 100vh;
 }
 
-/* 自选股行高亮 */
+/* 自选股行高亮 - 深色主题优化 */
 .favorite-row {
-  background-color: #fffbe6 !important;
+  background-color: rgba(250, 173, 20, 0.08) !important;  /* 金色半透明背景 */
+  transition: background-color 0.3s ease;                  /* 平滑过渡动画 */
 }
 
 .favorite-row:hover {
-  background-color: #fff7cc !important;
+  background-color: rgba(250, 173, 20, 0.15) !important;  /* 悬停时稍微加深 */
 }
 
-/* 表格行悬停效果 */
+/* 自选股第一列（五角星列）左侧金色边框 - 始终置顶 */
+.favorite-row td:first-child::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background-color: #faad14;
+  z-index: 10;  /* 高 z-index 确保始终可见 */
+}
+
+/* 自选股文字增强对比度 */
+.favorite-row td {
+  position: relative;
+  color: #e6edf3 !important;  /* 使用最高级别的文字颜色 */
+}
+
+/* 自选股的代码和名称列加粗 */
+.favorite-row td:nth-child(2),  /* 代码列 */
+.favorite-row td:nth-child(3) {  /* 名称列 */
+  font-weight: 600 !important;
+}
+
+/* 自选股的数字列保持等宽字体加粗 */
+.favorite-row td span[style*="monospace"] {
+  font-weight: 600 !important;
+}
+
+/* 表格行悬停效果 - 深色主题 */
 .ant-table-tbody > tr:hover > td {
-  background-color: #f5f5f5 !important;
+  background-color: #161b22 !important;
 }
 
+/* 自选股悬停时保持金色背景优先级 */
 .favorite-row:hover > td {
-  background-color: #fff7cc !important;
+  background-color: rgba(250, 173, 20, 0.15) !important;
+}
+
+/* 选中状态与自选股叠加时，金色边框依然可见 */
+.ant-table-tbody > tr.favorite-row.ant-table-row-selected td:first-child::before {
+  z-index: 11 !important;  /* 比选中状态更高 */
+}
+
+/* 实时刷新闪烁效果与自选股叠加 */
+@keyframes flash-favorite {
+  0%, 100% {
+    background-color: rgba(250, 173, 20, 0.08);
+  }
+  50% {
+    background-color: rgba(250, 173, 20, 0.25);
+  }
+}
+
+.favorite-row.flash-update {
+  animation: flash-favorite 0.6s ease-in-out;
+}
+
+/* 取消自选时的淡出效果 */
+.favorite-row-removing {
+  background-color: rgba(250, 173, 20, 0.08) !important;
+  animation: fadeOutFavorite 0.3s ease-out forwards;
+}
+
+@keyframes fadeOutFavorite {
+  from {
+    background-color: rgba(250, 173, 20, 0.08);
+    opacity: 1;
+  }
+  to {
+    background-color: transparent;
+    opacity: 1;
+  }
 }

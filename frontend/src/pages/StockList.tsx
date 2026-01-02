@@ -7,6 +7,7 @@ import { SearchOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { StockTable, IndexBar } from '../components/stocks';
 import { getStockList, type Stock, type StockListParams } from '../services/stocks';
+import { TRADING_COLORS } from '../theme/tradingTheme';
 import type { TablePaginationConfig } from 'antd/es/table';
 
 const { Title } = Typography;
@@ -58,14 +59,30 @@ function StockList() {
       };
 
       const response = await getStockList(params);
-      setAllStocks(response.data);
       
-      setPagination((prev) => ({
-        ...prev,
-        total: response.pagination.total,
-      }));
+      // 确保响应数据有效
+      if (response && response.data && response.pagination) {
+        setAllStocks(response.data);
+        
+        setPagination((prev) => ({
+          ...prev,
+          total: response.pagination.total,
+        }));
+      } else {
+        console.error('API 返回数据格式错误:', response);
+        setAllStocks([]);
+        setPagination((prev) => ({
+          ...prev,
+          total: 0,
+        }));
+      }
     } catch (error) {
       console.error('加载股票列表失败:', error);
+      setAllStocks([]);
+      setPagination((prev) => ({
+        ...prev,
+        total: 0,
+      }));
     } finally {
       setLoading(false);
     }
@@ -162,7 +179,7 @@ function StockList() {
                 title="上涨"
                 value={stats.gainers}
                 suffix="只"
-                valueStyle={{ color: '#cf1322' }}
+                valueStyle={{ color: TRADING_COLORS.UP }}
               />
             </Card>
           </Col>
@@ -172,7 +189,7 @@ function StockList() {
                 title="下跌"
                 value={stats.losers}
                 suffix="只"
-                valueStyle={{ color: '#3f8600' }}
+                valueStyle={{ color: TRADING_COLORS.DOWN }}
               />
             </Card>
           </Col>
@@ -183,7 +200,7 @@ function StockList() {
                 value={stats.avgChange}
                 precision={2}
                 suffix="%"
-                valueStyle={{ color: stats.avgChange > 0 ? '#cf1322' : stats.avgChange < 0 ? '#3f8600' : '#666' }}
+                valueStyle={{ color: stats.avgChange > 0 ? TRADING_COLORS.UP : stats.avgChange < 0 ? TRADING_COLORS.DOWN : TRADING_COLORS.STABLE }}
                 prefix={stats.avgChange > 0 ? '+' : ''}
               />
             </Card>

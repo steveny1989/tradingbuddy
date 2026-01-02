@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Card, Space } from 'antd';
 import { RiseOutlined, FallOutlined } from '@ant-design/icons';
 import { getIndices, type IndexData } from '../../services/indices';
+import { TRADING_COLORS } from '../../theme/tradingTheme';
 import './IndexBar.css';
 
 export function IndexBar() {
@@ -40,7 +41,7 @@ export function IndexBar() {
           {[...availableIndices, ...availableIndices].map((index, idx) => {
             const isUp = index.pct_chg > 0;
             const isDown = index.pct_chg < 0;
-            const color = isUp ? '#cf1322' : isDown ? '#3f8600' : '#666';
+            const color = isUp ? TRADING_COLORS.UP : isDown ? TRADING_COLORS.DOWN : TRADING_COLORS.STABLE;
             
             return (
               <div key={`${index.code}-${idx}`} className="index-item">

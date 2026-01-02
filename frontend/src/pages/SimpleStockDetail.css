@@ -1,0 +1,212 @@
+/**
+ * 极简股票详情页样式
+ */
+
+.simple-stock-detail {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.simple-stock-detail.loading,
+.simple-stock-detail.error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 16px;
+}
+
+/* 顶部导航栏 */
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.back-button {
+  font-size: 16px;
+}
+
+.watchlist-button {
+  font-size: 14px;
+}
+
+/* 股票基本信息卡片 */
+.stock-info-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.stock-info-card .ant-card-body {
+  padding: 24px;
+}
+
+.stock-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.stock-title h3 {
+  color: white !important;
+  margin-bottom: 4px;
+}
+
+.stock-title .ant-typography {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+}
+
+.stock-price {
+  text-align: right;
+}
+
+.stock-price .price {
+  font-size: 36px;
+  font-weight: bold;
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+.stock-price .change {
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.stock-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.metric-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metric-item .ant-typography {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+}
+
+.metric-item .ant-typography-strong {
+  color: white;
+  font-size: 16px;
+}
+
+/* K线图卡片 */
+.chart-card {
+  min-height: 400px;
+}
+
+.chart-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 350px;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+/* 选股理由卡片 */
+.reason-card .reason-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reason-card .reason-content {
+  font-size: 16px;
+  line-height: 1.8;
+  color: #333;
+}
+
+/* 关键指标卡片 */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.metric-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.metric-box .ant-typography:first-child {
+  font-size: 14px;
+}
+
+.metric-box .ant-typography:last-child {
+  margin-top: 4px;
+}
+
+/* 响应式设计 - 移动端 */
+@media (max-width: 768px) {
+  .simple-stock-detail {
+    padding: 12px;
+  }
+
+  .detail-header {
+    margin-bottom: 16px;
+  }
+
+  .stock-header {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .stock-price {
+    text-align: left;
+  }
+
+  .stock-price .price {
+    font-size: 28px;
+  }
+
+  .stock-price .change {
+    font-size: 16px;
+  }
+
+  .stock-metrics {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .metric-item .ant-typography-strong {
+    font-size: 14px;
+  }
+
+  .metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .metric-box {
+    padding: 16px 12px;
+  }
+
+  .metric-box .ant-typography-strong {
+    font-size: 18px;
+  }
+
+  .reason-card .reason-content {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+}

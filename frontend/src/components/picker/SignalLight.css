@@ -1,0 +1,54 @@
+/**
+ * 信号灯样式
+ */
+
+.signal-light-container {
+  display: inline-flex;
+  align-items: center;
+}
+
+.signal-light {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+}
+
+.signal-light .ant-badge-dot {
+  box-shadow: 0 0 8px currentColor;
+  animation: pulse 2s infinite;
+}
+
+/* 买入信号 - 绿灯 */
+.signal-buy .ant-badge-dot {
+  background-color: #52c41a;
+}
+
+/* 卖出信号 - 红灯 */
+.signal-sell .ant-badge-dot {
+  background-color: #ff4d4f;
+}
+
+/* 观望信号 - 黄灯 */
+.signal-hold .ant-badge-dot {
+  background-color: #faad14;
+}
+
+/* 脉冲动画 */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* 尺寸变体 */
+.signal-small {
+  padding: 1px;
+}
+
+.signal-large {
+  padding: 4px;
+}

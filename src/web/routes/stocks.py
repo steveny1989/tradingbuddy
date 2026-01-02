@@ -116,6 +116,48 @@ def get_stock_list():
         # 转换为字典列表
         stocks = df_page.to_dict('records')
         
+        # 批量获取所有股票的 Sparkline 数据（优化性能）
+        try:
+            codes_list = [f"{stock.get('market', 'sh')}.{stock['code']}" for stock in stocks]
+            
+            if codes_list:
+                # 使用 IN 查询批量获取
+                placeholders = ','.join(['?' for _ in codes_list])
+                sparkline_query = f"""
+                    SELECT code, close, date
+                    FROM (
+                        SELECT code, close, date,
+                               ROW_NUMBER() OVER (PARTITION BY code ORDER BY date DESC) as rn
+                        FROM daily_data
+                        WHERE code IN ({placeholders})
+                    )
+                    WHERE rn <= 30
+                    ORDER BY code, date ASC
+                """
+                
+                sparkline_df = pd.read_sql(sparkline_query, db.conn, params=codes_list)
+                
+                # 按股票代码分组
+                sparkline_dict = {}
+                for code in codes_list:
+                    code_data = sparkline_df[sparkline_df['code'] == code]
+                    if not code_data.empty:
+                        sparkline_dict[code] = code_data['close'].tolist()
+                
+                # 为每只股票添加 Sparkline 数据
+                for stock in stocks:
+                    full_code = f"{stock.get('market', 'sh')}.{stock['code']}"
+                    stock['sparkline'] = sparkline_dict.get(full_code, [])
+            else:
+                for stock in stocks:
+                    stock['sparkline'] = []
+                    
+        except Exception as e:
+            logger.warning(f"批量获取 Sparkline 数据失败: {e}")
+            # 如果失败，为所有股票添加空数组
+            for stock in stocks:
+                stock['sparkline'] = []
+        
         return paginated_response(stocks, total, page, page_size)
         
     except Exception as e:

@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
 import * as echarts from 'echarts';
 import { Button, Space } from 'antd';
 import type { DailyData } from '../../services/stocks';
+import { echartsTheme, TRADING_COLORS } from '../../theme/tradingTheme';
 
 interface KLineChartProps {
   data: DailyData[];
@@ -19,9 +20,9 @@ export function KLineChart({ data, timeRange, onTimeRangeChange }: KLineChartPro
   useEffect(() => {
     if (!chartRef.current) return;
 
-    // 初始化图表
+    // 初始化图表（应用深色主题）
     if (!chartInstance.current) {
-      chartInstance.current = echarts.init(chartRef.current);
+      chartInstance.current = echarts.init(chartRef.current, 'dark');
     }
 
     // 准备数据
@@ -35,13 +36,17 @@ export function KLineChart({ data, timeRange, onTimeRangeChange }: KLineChartPro
     const ma20 = calculateMA(20, data);
     const ma60 = calculateMA(60, data);
 
-    // 配置图表
+    // 配置图表（应用交易主题配置）
     const option: echarts.EChartsOption = {
+      ...echartsTheme,
       animation: false,
       legend: {
         bottom: 10,
         left: 'center',
         data: ['K线', 'MA5', 'MA10', 'MA20', 'MA60'],
+        textStyle: {
+          color: echartsTheme.textColor,
+        },
       },
       tooltip: {
         trigger: 'axis',
@@ -49,10 +54,11 @@ export function KLineChart({ data, timeRange, onTimeRangeChange }: KLineChartPro
           type: 'cross',
         },
         borderWidth: 1,
-        borderColor: '#ccc',
+        borderColor: echartsTheme.borderColor,
         padding: 10,
+        backgroundColor: echartsTheme.backgroundColor,
         textStyle: {
-          color: '#000',
+          color: echartsTheme.textColor,
         },
         formatter: function (params: any) {
           const dataIndex = params[0].dataIndex;
@@ -153,10 +159,10 @@ export function KLineChart({ data, timeRange, onTimeRangeChange }: KLineChartPro
           type: 'candlestick',
           data: klineData,
           itemStyle: {
-            color: '#ef5350',
-            color0: '#26a69a',
-            borderColor: '#ef5350',
-            borderColor0: '#26a69a',
+            color: TRADING_COLORS.UP,
+            color0: TRADING_COLORS.DOWN,
+            borderColor: TRADING_COLORS.UP,
+            borderColor0: TRADING_COLORS.DOWN,
           },
         },
         {
@@ -213,7 +219,7 @@ export function KLineChart({ data, timeRange, onTimeRangeChange }: KLineChartPro
             color: function (params: any) {
               const dataIndex = params.dataIndex;
               const kline = klineData[dataIndex];
-              return kline[1] >= kline[0] ? '#ef5350' : '#26a69a';
+              return kline[1] >= kline[0] ? TRADING_COLORS.UP : TRADING_COLORS.DOWN;
             },
           },
         },

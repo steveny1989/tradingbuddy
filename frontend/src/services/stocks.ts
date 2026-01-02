@@ -16,6 +16,7 @@ export interface Stock {
   pe_ttm?: number;      // 市盈率
   pb?: number;          // 市净率
   pct_chg?: number;     // 涨跌幅
+  sparkline?: number[]; // 最近30天收盘价（用于微缩走势图）
 }
 
 export interface DailyData {

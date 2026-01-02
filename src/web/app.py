@@ -38,6 +38,15 @@ def create_app():
     from src.web.routes import api_bp
     app.register_blueprint(api_bp, url_prefix='/api')
     
+    # 初始化选股缓存
+    from src.web.cache_manager import init_cache
+    from src.web.routes.picker import get_picks_from_database
+    
+    with app.app_context():
+        app.logger.info("初始化选股缓存...")
+        init_cache(get_picks_from_database)
+        app.logger.info("选股缓存初始化完成")
+    
     # 全局错误处理器
     from src.web.utils.errors import APIError
     from src.web.utils.response import error_response
