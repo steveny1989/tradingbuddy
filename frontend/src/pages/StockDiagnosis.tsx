@@ -1,4 +1,8 @@
 import React, { useState } from 'react';
+import AIDecisionCard from '../components/diagnosis/AIDecisionCard';
+import RadarChart from '../components/diagnosis/RadarChart';
+import MetricGauge from '../components/diagnosis/MetricGauge';
+import ReasonBubbles from '../components/diagnosis/ReasonBubbles';
 import './StockDiagnosis.css';
 
 interface Stock {
@@ -178,6 +182,14 @@ const StockDiagnosis: React.FC = () => {
       {/* 诊断报告 */}
       {report && !isLoading && (
         <div className="report-container">
+          {/* AI 决策总结卡片 - 金字招牌 */}
+          <AIDecisionCard
+            overallScore={report.overall_score}
+            signalLight={report.signal_light}
+            diagnosisText={report.diagnosis_text}
+            stockName={report.name}
+          />
+
           {/* 基本信息 */}
           <div className="report-section basic-info">
             <h2>📊 基本信息</h2>
@@ -216,17 +228,45 @@ const StockDiagnosis: React.FC = () => {
           <div className="report-section dimensions">
             <h2>📈 各维度评分</h2>
             
+            {/* 五维雷达图 + 情绪表盘 */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 24, marginBottom: 24 }}>
+              {/* 左侧：五维雷达图 */}
+              <RadarChart
+                technicalScore={report.technical_score.value}
+                liquidityScore={report.liquidity_score.value}
+                marketScore={report.market_score.value}
+              />
+
+              {/* 右侧：关键指标仪表盘 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <MetricGauge
+                  title="估值水平"
+                  value={report.current_price}
+                  unit="元"
+                  min={report.current_price * 0.5}
+                  max={report.current_price * 1.5}
+                  icon="💰"
+                  comparison="当前价格处于合理区间"
+                />
+                <MetricGauge
+                  title="风险等级"
+                  value={report.risk_info.volatility * 100}
+                  unit="%"
+                  min={0}
+                  max={50}
+                  icon="⚠️"
+                  comparison={`波动率 ${(report.risk_info.volatility * 100).toFixed(1)}%，${report.risk_info.risk_level}`}
+                />
+              </div>
+            </div>
+            
             {/* 技术面 */}
             <div className="dimension-card">
               <div className="dimension-header">
                 <h3>📈 技术面评分</h3>
                 <span className="dimension-score">{report.technical_score.value.toFixed(1)} 分</span>
               </div>
-              <ul className="dimension-reasons">
-                {report.technical_score.reasons.map((reason, idx) => (
-                  <li key={idx}>{reason}</li>
-                ))}
-              </ul>
+              <ReasonBubbles reasons={report.technical_score.reasons} type="technical" />
             </div>
 
             {/* 流动性 */}
@@ -235,11 +275,7 @@ const StockDiagnosis: React.FC = () => {
                 <h3>💰 流动性评分</h3>
                 <span className="dimension-score">{report.liquidity_score.value.toFixed(1)} 分</span>
               </div>
-              <ul className="dimension-reasons">
-                {report.liquidity_score.reasons.map((reason, idx) => (
-                  <li key={idx}>{reason}</li>
-                ))}
-              </ul>
+              <ReasonBubbles reasons={report.liquidity_score.reasons} type="liquidity" />
             </div>
 
             {/* 市场环境 */}
@@ -248,11 +284,7 @@ const StockDiagnosis: React.FC = () => {
                 <h3>🌍 市场环境评分</h3>
                 <span className="dimension-score">{report.market_score.value.toFixed(1)} 分</span>
               </div>
-              <ul className="dimension-reasons">
-                {report.market_score.reasons.map((reason, idx) => (
-                  <li key={idx}>{reason}</li>
-                ))}
-              </ul>
+              <ReasonBubbles reasons={report.market_score.reasons} type="market" />
             </div>
           </div>
 

@@ -1,0 +1,220 @@
+/**
+ * 指标仪表盘样式
+ */
+
+.metric-gauge {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 20px;
+  transition: all 0.3s ease;
+}
+
+.metric-gauge:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* 头部 */
+.gauge-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.gauge-icon {
+  font-size: 20px;
+}
+
+.gauge-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* 刻度尺轨道 */
+.gauge-track {
+  position: relative;
+  height: 40px;
+  margin-bottom: 16px;
+}
+
+.gauge-gradient {
+  display: flex;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.gradient-section {
+  flex: 1;
+  transition: all 0.3s ease;
+}
+
+.gradient-section.green {
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.gradient-section.yellow {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.gradient-section.red {
+  background: linear-gradient(90deg, #f59e0b, #ef4444);
+}
+
+/* 指针 */
+.gauge-pointer {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 2;
+}
+
+.pointer-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 
+    0 0 10px currentColor,
+    0 4px 8px rgba(0, 0, 0, 0.3);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 
+      0 0 10px currentColor,
+      0 4px 8px rgba(0, 0, 0, 0.3);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 
+      0 0 20px currentColor,
+      0 6px 12px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* 刻度标记 */
+.gauge-marks {
+  position: absolute;
+  top: 16px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+}
+
+.mark {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  transform: translateX(-50%);
+}
+
+.mark:first-child {
+  transform: translateX(0);
+}
+
+.mark:last-child {
+  transform: translateX(-100%);
+}
+
+/* 数值显示 */
+.gauge-value-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.gauge-value {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.value-number {
+  font-size: 28px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 10px currentColor;
+}
+
+.value-unit {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+}
+
+.gauge-status {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid currentColor;
+  text-shadow: 0 0 8px currentColor;
+}
+
+/* 对比描述 */
+.gauge-comparison {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(59, 130, 246, 0.1);
+  border-left: 3px solid #3b82f6;
+  border-radius: 8px;
+  margin-top: 12px;
+}
+
+.comparison-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.comparison-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .metric-gauge {
+    padding: 16px;
+  }
+
+  .gauge-icon {
+    font-size: 18px;
+  }
+
+  .gauge-title {
+    font-size: 13px;
+  }
+
+  .value-number {
+    font-size: 24px;
+  }
+
+  .gauge-status {
+    font-size: 12px;
+    padding: 3px 10px;
+  }
+
+  .comparison-text {
+    font-size: 12px;
+  }
+}
