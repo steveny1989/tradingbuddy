@@ -230,14 +230,14 @@
     - 集成 `/api/stocks` API
     - _Requirements: 2.1, 2.2, 12.7, 12.8_
 
-  - [ ] 12.2 实现股票详情页面
+  - [x] 12.2 实现股票详情页面
     - 创建 `StockDetailPage` 主组件
     - 实现 `StockInfo` 基本信息组件
     - 实现 `TechnicalIndicators` 技术指标组件
     - 集成 `/api/stocks/{code}` API
     - _Requirements: 2.3_
 
-  - [ ] 12.3 实现K线图组件
+  - [x] 12.3 实现K线图组件
     - 创建 `KLineChart` 图表组件
     - 使用ECharts渲染K线图和成交量
     - 支持技术指标叠加（MA5, MA10, MA20, MA60）

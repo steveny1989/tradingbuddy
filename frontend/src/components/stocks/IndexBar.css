@@ -1,0 +1,42 @@
+/* 指数行情栏滚动动画 */
+.index-bar-container {
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.index-bar-scroll {
+  display: flex;
+  gap: 48px;
+  animation: scroll-left 60s linear infinite;
+  will-change: transform;
+}
+
+.index-bar-scroll:hover {
+  animation-play-state: paused;
+}
+
+.index-item {
+  flex-shrink: 0;
+  min-width: 180px;
+}
+
+@keyframes scroll-left {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .index-item {
+    min-width: 150px;
+  }
+  
+  .index-bar-scroll {
+    gap: 32px;
+  }
+}

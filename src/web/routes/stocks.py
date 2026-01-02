@@ -63,34 +63,47 @@ def get_stock_list():
         if df.empty:
             return paginated_response([], 0, page, page_size)
         
+        # 获取行业信息
+        try:
+            industry_data = pd.read_sql(
+                "SELECT code, industry FROM industry_data",
+                db.conn
+            )
+            if not industry_data.empty:
+                df = df.merge(industry_data, on='code', how='left')
+        except Exception as e:
+            logger.warning(f"获取行业数据失败: {e}")
+        
+        # 获取最新市值和涨跌幅数据
+        try:
+            market_data = pd.read_sql(
+                """
+                SELECT code, total_cap, float_cap, pe_ttm, pb, pct_chg
+                FROM market_snapshot 
+                WHERE date = (SELECT MAX(date) FROM market_snapshot)
+                """,
+                db.conn
+            )
+            
+            if not market_data.empty:
+                # 合并市值数据
+                df = df.merge(market_data, on='code', how='left')
+        except Exception as e:
+            logger.warning(f"获取市值数据失败: {e}")
+        
         # 应用市场筛选
         if market:
             df = df[df['market'] == market]
         
-        # 应用市值筛选（需要从market_snapshot获取最新市值）
-        if min_cap is not None or max_cap is not None:
-            # 获取最新市值数据
-            try:
-                market_data = pd.read_sql(
-                    """
-                    SELECT code, total_cap 
-                    FROM market_snapshot 
-                    WHERE date = (SELECT MAX(date) FROM market_snapshot)
-                    """,
-                    db.conn
-                )
-                
-                if not market_data.empty:
-                    # 合并市值数据
-                    df = df.merge(market_data, on='code', how='left')
-                    
-                    # 应用市值筛选（市值单位：亿元）
-                    if min_cap is not None:
-                        df = df[df['total_cap'] >= min_cap * 100000000]
-                    if max_cap is not None:
-                        df = df[df['total_cap'] <= max_cap * 100000000]
-            except Exception as e:
-                logger.warning(f"获取市值数据失败: {e}")
+        # 应用市值筛选（市值单位：亿元）
+        if min_cap is not None and 'total_cap' in df.columns:
+            df = df[df['total_cap'] >= min_cap * 100000000]
+        if max_cap is not None and 'total_cap' in df.columns:
+            df = df[df['total_cap'] <= max_cap * 100000000]
+        
+        # 默认按市值降序排序
+        if 'total_cap' in df.columns:
+            df = df.sort_values('total_cap', ascending=False, na_position='last')
         
         # 计算总数
         total = len(df)

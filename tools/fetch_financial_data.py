@@ -30,6 +30,10 @@ def main():
     parser.add_argument('--batch', action='store_true', help='批量下载全市场')
     parser.add_argument('--max', type=int, help='最大下载数量（用于测试）')
     parser.add_argument('--stats', action='store_true', help='显示财务数据统计')
+    parser.add_argument('--force', action='store_true', help='强制更新（忽略已有数据）')
+    parser.add_argument('--resume-from', type=str, help='从指定股票代码继续（断点续传）')
+    parser.add_argument('--retry-failed', type=str, help='从失败列表文件重试')
+    parser.add_argument('--codes', type=str, help='指定股票代码列表（逗号分隔，如 600000,000001）')
     
     args = parser.parse_args()
     
@@ -61,20 +65,36 @@ def main():
             print(f"\n🚀 开始下载 {args.code} 的财务数据...")
             result = fetcher.fetch_all_financial_data(args.code, save_to_db=True)
             
-            if result['success']:
+            if result.success:
                 print(f"\n✅ {args.code} 财务数据下载完成！")
                 
-                # 显示数据概览
-                if result['balance_sheet'] is not None:
-                    print(f"  - 资产负债表: {len(result['balance_sheet'])} 期")
-                if result['income_statement'] is not None:
-                    print(f"  - 利润表: {len(result['income_statement'])} 期")
-                if result['cash_flow'] is not None:
-                    print(f"  - 现金流量表: {len(result['cash_flow'])} 期")
-                if result['financial_indicators'] is not None:
-                    print(f"  - 财务指标: {len(result['financial_indicators'])} 期")
+                # 显示状态概览
+                print(f"  - 资产负债表: {result.balance_sheet_status.value}")
+                print(f"  - 利润表: {result.income_statement_status.value}")
+                print(f"  - 现金流量表: {result.cash_flow_status.value}")
+                print(f"  - 财务指标: {result.indicators_status.value}")
             else:
                 print(f"\n❌ {args.code} 财务数据下载失败")
+                if result.error_type:
+                    print(f"  - 错误类型: {result.error_type.value}")
+                if result.error_details:
+                    print(f"  - 错误详情: {result.error_details}")
+        
+        elif args.retry_failed:
+            # 从失败列表重试
+            print(f"\n🔄 从失败列表重试: {args.retry_failed}")
+            result = fetcher.retry_failed_stocks(args.retry_failed)
+            
+            print(f"\n✅ 重试完成！")
+            print(f"  - 总数: {result.total}")
+            print(f"  - 成功: {result.success}")
+            print(f"  - 失败: {result.failed}")
+            print(f"  - 成功率: {result.success_rate}%")
+            
+            if result.report_file:
+                print(f"\n📄 报告文件: {result.report_file}")
+            if result.failed_list_file:
+                print(f"📄 失败列表: {result.failed_list_file}")
         
         elif args.batch:
             # 批量下载
@@ -83,13 +103,44 @@ def main():
             if args.max:
                 print(f"⚠️ 测试模式：仅下载前 {args.max} 只股票")
             
-            result = fetcher.batch_fetch_financial_data(max_stocks=args.max)
+            if args.force:
+                print("⚡ 强制更新模式：将更新所有股票")
+            
+            if args.resume_from:
+                print(f"🔄 断点续传：从 {args.resume_from} 继续")
+            
+            # 处理自定义股票列表
+            codes = None
+            if args.codes:
+                codes = [c.strip() for c in args.codes.split(',')]
+                print(f"📋 自定义股票列表：{len(codes)} 只股票")
+            
+            result = fetcher.batch_fetch_financial_data(
+                codes=codes,
+                max_stocks=args.max,
+                force_update=args.force,
+                resume_from=args.resume_from
+            )
             
             print(f"\n✅ 批量下载完成！")
-            print(f"  - 总数: {result['total']}")
-            print(f"  - 成功: {result['success']}")
-            print(f"  - 失败: {result['failed']}")
-            print(f"  - 成功率: {result['success']/result['total']*100:.1f}%")
+            print(f"  - 总数: {result.total}")
+            print(f"  - 成功: {result.success}")
+            print(f"  - 失败: {result.failed}")
+            print(f"  - 成功率: {result.success_rate}%")
+            print(f"  - 耗时: {result.elapsed_seconds}秒")
+            print(f"  - 平均速度: {result.avg_speed}股票/秒")
+            
+            if result.error_stats:
+                print(f"\n📋 错误统计:")
+                for error_type, count in result.error_stats.items():
+                    # 如果是ErrorType对象，获取其value
+                    error_name = error_type.value if hasattr(error_type, 'value') else str(error_type)
+                    print(f"  - {error_name}: {count}")
+            
+            if result.report_file:
+                print(f"\n📄 报告文件: {result.report_file}")
+            if result.failed_list_file:
+                print(f"📄 失败列表: {result.failed_list_file}")
         
         else:
             parser.print_help()

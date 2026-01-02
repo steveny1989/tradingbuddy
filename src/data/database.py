@@ -18,6 +18,7 @@ class StockDatabase:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self._init_tables()
+        self._run_migrations()
     
     def _init_tables(self):
         """初始化数据库表结构"""
@@ -208,6 +209,17 @@ class StockDatabase:
         
         self.conn.commit()
         logger.info("数据库表结构初始化完成")
+    
+    def _run_migrations(self):
+        """运行数据库迁移"""
+        try:
+            from src.data.db_migrations import DatabaseMigration
+            migration = DatabaseMigration(str(self.db_path))
+            migration.migrate_to_latest()
+            migration.close()
+        except Exception as e:
+            logger.warning(f"数据库迁移失败: {e}")
+            # 不抛出异常，允许系统继续运行
     
     def save_stock_list(self, df: pd.DataFrame):
         """保存股票列表"""

@@ -14,12 +14,13 @@ def create_app():
     app.config['JSON_AS_ASCII'] = False  # 支持中文
     app.config['JSON_SORT_KEYS'] = False
     
-    # CORS配置
+    # CORS配置 - 允许前端访问
     CORS(app, resources={
         r"/api/*": {
-            "origins": ["http://localhost:3000"],
-            "methods": ["GET", "POST", "PUT", "DELETE"],
-            "allow_headers": ["Content-Type"]
+            "origins": ["http://localhost:3000", "http://localhost:3001"],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+            "supports_credentials": True
         }
     })
     

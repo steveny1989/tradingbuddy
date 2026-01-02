@@ -9,8 +9,13 @@ export interface Stock {
   market: 'sh' | 'sz';
   full_code: string;
   industry?: string;
-  market_cap?: number;
+  market_cap?: number;  // 保留兼容性
+  total_cap?: number;   // 总市值
+  float_cap?: number;   // 流通市值
   list_date?: string;
+  pe_ttm?: number;      // 市盈率
+  pb?: number;          // 市净率
+  pct_chg?: number;     // 涨跌幅
 }
 
 export interface DailyData {
@@ -22,7 +27,7 @@ export interface DailyData {
   volume: number;
   amount: number;
   turnover?: number;
-  pct_chg?: number;
+  pct_change?: number;
 }
 
 export interface IndicatorData {
@@ -74,27 +79,27 @@ export interface IndicatorDataResponse {
  * 获取股票列表
  */
 export const getStockList = async (params?: StockListParams): Promise<StockListResponse> => {
-  return await api.get('/stocks', { params });
+  const response = await api.get<StockListResponse>('/stocks', { params });
+  return response as StockListResponse;
 };
 
 /**
  * 获取股票详情
  */
-export const getStockDetail = async (code: string): Promise<StockDetailResponse> => {
-  return await api.get(`/stocks/${code}`);
+export const getStockDetail = async (code: string): Promise<Stock> => {
+  const response = await api.get<StockDetailResponse>(`/stocks/${code}`);
+  return response.data;
 };
 
 /**
  * 获取日线数据
  */
-export const getDailyData = async (
+export const getStockDaily = async (
   code: string,
-  startDate?: string,
-  endDate?: string
-): Promise<DailyDataResponse> => {
-  return await api.get(`/stocks/${code}/daily`, {
-    params: { start_date: startDate, end_date: endDate },
-  });
+  params?: { start_date?: string; end_date?: string }
+): Promise<DailyData[]> => {
+  const response = await api.get<DailyDataResponse>(`/stocks/${code}/daily`, { params });
+  return response.data;
 };
 
 /**
@@ -118,6 +123,6 @@ export const getIndicators = async (
 export default {
   getStockList,
   getStockDetail,
-  getDailyData,
+  getStockDaily,
   getIndicators,
 };

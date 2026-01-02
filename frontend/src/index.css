@@ -15,3 +15,21 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* 自选股行高亮 */
+.favorite-row {
+  background-color: #fffbe6 !important;
+}
+
+.favorite-row:hover {
+  background-color: #fff7cc !important;
+}
+
+/* 表格行悬停效果 */
+.ant-table-tbody > tr:hover > td {
+  background-color: #f5f5f5 !important;
+}
+
+.favorite-row:hover > td {
+  background-color: #fff7cc !important;
+}
