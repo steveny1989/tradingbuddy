@@ -94,53 +94,9 @@ const SimplePicker: React.FC = () => {
   // 加载自选股
   const loadWatchlist = async () => {
     try {
-      // 临时模拟数据 - 使用API返回的字段名
-      const mockWatchlist: WatchlistItem[] = [
-        {
-          code: '600000.SH',
-          name: '浦发银行',
-          current_price: 8.52,
-          change_pct: 0.0235,
-          signal: 'buy',
-          add_time: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-          add_price: 8.20,
-          stop_loss: -0.10,  // 止损百分比-10%
-          take_profit: 0.20,  // 止盈百分比+20%
-          profit_pct: (8.52 - 8.20) / 8.20,  // 持仓盈亏: +3.90%
-        },
-        {
-          code: '601318.SH',
-          name: '中国平安',
-          current_price: 45.67,
-          change_pct: 0.0156,
-          signal: 'hold',
-          add_time: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-          add_price: 46.00,
-          stop_loss: -0.10,
-          take_profit: 0.20,
-          profit_pct: (45.67 - 46.00) / 46.00,  // 持仓盈亏: -0.72%
-        },
-        {
-          code: '600519.SH',
-          name: '贵州茅台',
-          current_price: 1678.90,
-          change_pct: -0.0123,
-          signal: 'hold',
-          add_time: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-          add_price: 1700.00,
-          stop_loss: -0.10,
-          take_profit: 0.20,
-          profit_pct: (1678.90 - 1700.00) / 1700.00,  // 持仓盈亏: -1.24%
-          alert: {
-            type: 'stop_loss',
-            message: '建议止损卖出',
-            current_price: 1678.90,
-            target_price: 1530.00,
-          },
-        },
-      ];
-      
-      setWatchlist(mockWatchlist);
+      // TODO: 实现真实的自选股功能
+      // 目前返回空列表，用户需要从今日精选中添加股票到自选
+      setWatchlist([]);
     } catch (error) {
       console.error('加载自选股失败:', error);
     }
