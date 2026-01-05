@@ -3,8 +3,18 @@
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 
-# 数据库配置
-DB_PATH = "data/a_share.db"
+# ==================== 数据库配置 ====================
+
+# V2 三层数据架构路径
+DB_PATHS = {
+    "raw": "data/raw",           # 原始数据层
+    "cleaned": "data/cleaned",   # 清洗数据层
+    "aggregated": "data/aggregated",  # 聚合数据层
+    "legacy": "data/a_share.db"  # V1 遗留数据库（兼容旧代码）
+}
+
+# V1 兼容配置（逐步废弃）
+DB_PATH = "data/a_share.db"  # 保留用于向后兼容
 
 # 数据采集配置
 START_DATE = "20230101"  # 建议采集2-3年数据
