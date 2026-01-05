@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-主程序 - 使用三层数据架构
+主程序 V2 - 使用三层数据架构
 
-使用新的 DataFetcher，将数据写入三层架构：
+使用新的 DataFetcherV2，将数据写入三层架构：
 - Raw Layer: 原始数据
 - Cleaned Layer: 清洗后的数据  
 - Aggregated Layer: 技术指标
@@ -12,7 +12,7 @@ import argparse
 from datetime import datetime
 import os
 
-from src.data.fetcher import DataFetcher
+from src.data.fetcher_v2 import DataFetcherV2
 from src.config.settings import START_DATE
 
 # 配置日志
@@ -20,7 +20,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(f'logs/data_sync_{datetime.now().strftime("%Y%m%d")}.log'),
+        logging.FileHandler(f'logs/data_sync_v2_{datetime.now().strftime("%Y%m%d")}.log'),
         logging.StreamHandler()
     ]
 )
@@ -31,11 +31,11 @@ logger = logging.getLogger(__name__)
 def init_fetcher():
     """初始化数据采集器"""
     logger.info("="*60)
-    logger.info("🚀 A股数据采集系统启动")
+    logger.info("🚀 A股数据采集系统 V2 启动")
     logger.info("📦 使用三层数据架构 (Raw → Cleaned → Aggregated)")
     logger.info("="*60)
     
-    fetcher = DataFetcher()
+    fetcher = DataFetcherV2()
     return fetcher
 
 
@@ -73,7 +73,7 @@ def update_daily(date: str = None):
 
 def show_status():
     """显示数据库状态"""
-    fetcher = DataFetcher()
+    fetcher = DataFetcherV2()
     
     try:
         logger.info("\n" + "="*60)
@@ -125,27 +125,27 @@ def show_status():
 def main():
     """主函数"""
     parser = argparse.ArgumentParser(
-        description='A股数据采集系统 (三层架构)',
+        description='A股数据采集系统 V2 (三层架构)',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
   # 全量下载（从2023年开始）
-  python -m src.app.main download
+  python -m src.app.main_v2 download
   
   # 全量下载（指定开始日期）
-  python -m src.app.main download --start-date 20240101
+  python -m src.app.main_v2 download --start-date 20240101
   
   # 强制重新下载
-  python -m src.app.main download --force
+  python -m src.app.main_v2 download --force
   
   # 每日增量更新（今天）
-  python -m src.app.main update
+  python -m src.app.main_v2 update
   
   # 更新指定日期
-  python -m src.app.main update --date 20260105
+  python -m src.app.main_v2 update --date 20260105
   
   # 查看数据状态
-  python -m src.app.main status
+  python -m src.app.main_v2 status
         """
     )
     

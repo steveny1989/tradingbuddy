@@ -4,8 +4,10 @@
 
 多维度分析：
 1. 技术面：MA20偏离度、RSI、量比
-2. 行业面：行业归属、板块联动性、同行业推荐
-3. 资金面：北向资金、主力资金流向
+2. 情绪面：涨跌停基因、股性分析、波动性
+3. 财务面：ROE、资产负债率、财务风险评分
+4. 行业面：行业归属、板块联动性、同行业推荐
+5. 资金面：北向资金、主力资金流向
 
 输出红绿灯系统：
 - 🟢 绿灯 (green): 健康，可以持有
@@ -19,6 +21,8 @@ from src.data.database_adapter import DatabaseAdapter
 from src.business.post_market.models import PortfolioHealth
 from src.business.post_market.sector_analysis import SectorAnalyzer
 from src.business.post_market.capital_analysis import CapitalAnalyzer
+from src.business.post_market.sentiment_analysis import SentimentAnalyzer
+from src.business.post_market.financial_risk import FinancialRiskAnalyzer
 
 
 class TechnicalIndicators:
@@ -65,9 +69,12 @@ class PortfolioHealthChecker:
         self.db = DatabaseAdapter()
         self.sector_analyzer = SectorAnalyzer()
         self.capital_analyzer = CapitalAnalyzer()
+        self.sentiment_analyzer = SentimentAnalyzer()
+        self.financial_analyzer = FinancialRiskAnalyzer()
     
     def check_stock(self, code: str, cost_price: Optional[float] = None, 
-                   include_sector: bool = True, include_capital: bool = True) -> Dict:
+                   include_sector: bool = True, include_capital: bool = True,
+                   include_sentiment: bool = True, include_financial: bool = True) -> Dict:
         """
         检查单只股票的健康状态（增强版）
         
@@ -76,6 +83,8 @@ class PortfolioHealthChecker:
             cost_price: 成本价格（可选）
             include_sector: 是否包含行业面分析
             include_capital: 是否包含资金面分析
+            include_sentiment: 是否包含情绪面分析
+            include_financial: 是否包含财务面分析
         
         Returns:
             Dict: 完整的健康分析报告
@@ -83,7 +92,23 @@ class PortfolioHealthChecker:
         # 1. 技术面分析（原有功能）
         technical = self._check_technical(code, cost_price)
         
-        # 2. 行业面分析（新增）
+        # 2. 情绪面分析（新增）
+        sentiment = None
+        if include_sentiment:
+            try:
+                sentiment = self.sentiment_analyzer.analyze_sentiment(code)
+            except Exception as e:
+                print(f"情绪面分析失败: {e}")
+        
+        # 3. 财务面分析（新增）
+        financial = None
+        if include_financial:
+            try:
+                financial = self.financial_analyzer.analyze_financial_risk(code)
+            except Exception as e:
+                print(f"财务面分析失败: {e}")
+        
+        # 4. 行业面分析
         sector = None
         if include_sector:
             try:
@@ -91,7 +116,7 @@ class PortfolioHealthChecker:
             except Exception as e:
                 print(f"行业面分析失败: {e}")
         
-        # 3. 资金面分析（新增）
+        # 5. 资金面分析
         capital = None
         if include_capital:
             try:
@@ -99,8 +124,10 @@ class PortfolioHealthChecker:
             except Exception as e:
                 print(f"资金面分析失败: {e}")
         
-        # 4. 综合判断
-        overall_status, overall_message = self._综合判断(technical, sector, capital)
+        # 6. 综合判断
+        overall_status, overall_message = self._综合判断(
+            technical, sentiment, financial, sector, capital
+        )
         
         return {
             'code': code,
@@ -108,6 +135,8 @@ class PortfolioHealthChecker:
             'overall_status': overall_status,
             'overall_message': overall_message,
             'technical': technical,
+            'sentiment': sentiment,
+            'financial': financial,
             'sector': sector,
             'capital': capital
         }
@@ -305,9 +334,11 @@ class PortfolioHealthChecker:
             f'市场信号不明确，建议谨慎操作'
         )
     
-    def _综合判断(self, technical: PortfolioHealth, sector: Optional[Dict], capital: Optional[Dict]) -> tuple[str, str]:
+    def _综合判断(self, technical: PortfolioHealth, sentiment: Optional[Dict], 
+                 financial: Optional[Dict], sector: Optional[Dict], 
+                 capital: Optional[Dict]) -> tuple[str, str]:
         """
-        综合技术面、行业面、资金面，给出最终判断
+        综合技术面、情绪面、财务面、行业面、资金面，给出最终判断
         
         Returns:
             (status, message)
@@ -315,6 +346,14 @@ class PortfolioHealthChecker:
         # 收集各维度状态
         statuses = [technical.status]
         messages = [f"技术面：{technical.recommendation}"]
+        
+        if sentiment and 'status' in sentiment:
+            statuses.append(sentiment['status'])
+            messages.append(f"情绪面：{sentiment['message']}")
+        
+        if financial and 'status' in financial:
+            statuses.append(financial['status'])
+            messages.append(f"财务面：{financial['message']}")
         
         if sector and 'status' in sector:
             statuses.append(sector['status'])
@@ -342,7 +381,8 @@ class PortfolioHealthChecker:
         return overall_status, overall_message
     
     def check_portfolio(self, holdings: list[dict], include_sector: bool = True, 
-                       include_capital: bool = True) -> list[Dict]:
+                       include_capital: bool = True, include_sentiment: bool = True,
+                       include_financial: bool = True) -> list[Dict]:
         """
         批量检查持仓健康（增强版）
         
@@ -350,6 +390,8 @@ class PortfolioHealthChecker:
             holdings: 持仓列表，每个元素包含 {'code': 'sh.600519', 'cost_price': 1350.0}
             include_sector: 是否包含行业面分析
             include_capital: 是否包含资金面分析
+            include_sentiment: 是否包含情绪面分析
+            include_financial: 是否包含财务面分析
         
         Returns:
             List[Dict]: 持仓健康列表
@@ -361,7 +403,9 @@ class PortfolioHealthChecker:
                     code=holding['code'],
                     cost_price=holding.get('cost_price'),
                     include_sector=include_sector,
-                    include_capital=include_capital
+                    include_capital=include_capital,
+                    include_sentiment=include_sentiment,
+                    include_financial=include_financial
                 )
                 results.append(health)
             except Exception as e:
@@ -373,7 +417,8 @@ class PortfolioHealthChecker:
 
 # 便捷函数
 def check_stock_health(code: str, cost_price: Optional[float] = None, 
-                      include_sector: bool = True, include_capital: bool = True) -> Dict:
+                      include_sector: bool = True, include_capital: bool = True,
+                      include_sentiment: bool = True, include_financial: bool = True) -> Dict:
     """
     检查单只股票的健康状态（便捷函数 - 增强版）
     
@@ -382,16 +427,20 @@ def check_stock_health(code: str, cost_price: Optional[float] = None,
         cost_price: 成本价格（可选）
         include_sector: 是否包含行业面分析
         include_capital: 是否包含资金面分析
+        include_sentiment: 是否包含情绪面分析
+        include_financial: 是否包含财务面分析
     
     Returns:
         Dict: 完整的健康分析报告
     """
     checker = PortfolioHealthChecker()
-    return checker.check_stock(code, cost_price, include_sector, include_capital)
+    return checker.check_stock(code, cost_price, include_sector, include_capital,
+                              include_sentiment, include_financial)
 
 
 def check_portfolio_health(holdings: list[dict], include_sector: bool = True, 
-                          include_capital: bool = True) -> list[Dict]:
+                          include_capital: bool = True, include_sentiment: bool = True,
+                          include_financial: bool = True) -> list[Dict]:
     """
     批量检查持仓健康（便捷函数 - 增强版）
     
@@ -399,9 +448,12 @@ def check_portfolio_health(holdings: list[dict], include_sector: bool = True,
         holdings: 持仓列表
         include_sector: 是否包含行业面分析
         include_capital: 是否包含资金面分析
+        include_sentiment: 是否包含情绪面分析
+        include_financial: 是否包含财务面分析
     
     Returns:
         List[Dict]: 持仓健康列表
     """
     checker = PortfolioHealthChecker()
-    return checker.check_portfolio(holdings, include_sector, include_capital)
+    return checker.check_portfolio(holdings, include_sector, include_capital,
+                                  include_sentiment, include_financial)
