@@ -3,15 +3,15 @@
 """
 from flask import request
 from . import api_bp
-from src.data.database import StockDatabase
+from src.data.database_adapter import DatabaseAdapter
 from src.web.utils.response import success_response, error_response
 import pandas as pd
 import logging
 
 logger = logging.getLogger(__name__)
 
-# 初始化数据库连接
-db = StockDatabase()
+# 初始化数据库连接（使用新的适配器）
+db = DatabaseAdapter()
 
 # 主要指数列表
 MAJOR_INDICES = [

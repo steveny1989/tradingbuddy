@@ -70,12 +70,20 @@ class MACrossoverStrategy(TechnicalStrategy):
             股票池 DataFrame
         """
         try:
+            # 从市值表获取符合条件的股票，JOIN stock_basic 获取真实的中文名称
             query = f"""
-                SELECT full_code, code, name, total_cap, cap_category, market
-                FROM market_cap_data
-                WHERE total_cap >= {min_cap} 
-                  AND total_cap <= {max_cap}
-                  AND market IN ({','.join([f"'{m}'" for m in markets])})
+                SELECT 
+                    m.full_code, 
+                    m.code, 
+                    COALESCE(s.name, m.name) as name,  -- 优先使用 stock_basic 的中文名称
+                    m.total_cap, 
+                    m.cap_category, 
+                    m.market
+                FROM market_cap_data m
+                LEFT JOIN stock_basic s ON m.code = s.code
+                WHERE m.total_cap >= {min_cap} 
+                  AND m.total_cap <= {max_cap}
+                  AND m.market IN ({','.join([f"'{m}'" for m in markets])})
             """
             pool = pd.read_sql(query, self.db.conn)
             logger.info(f"股票池: {len(pool)} 只股票 (市值 {min_cap/1e8:.0f}-{max_cap/1e8:.0f}亿)")

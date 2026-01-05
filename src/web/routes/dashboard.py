@@ -3,15 +3,15 @@
 """
 from flask import jsonify
 from . import api_bp
-from src.data.database import StockDatabase
+from src.data.database_adapter import DatabaseAdapter
 from src.web.utils.response import success_response, error_response
 import logging
 import os
 
 logger = logging.getLogger(__name__)
 
-# 初始化数据库连接
-db = StockDatabase()
+# 初始化数据库连接（使用新的适配器）
+db = DatabaseAdapter()
 
 
 @api_bp.route('/dashboard/summary', methods=['GET'])

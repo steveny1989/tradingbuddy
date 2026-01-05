@@ -1,200 +1,230 @@
+# -*- coding: utf-8 -*-
 """
-诊断模块的数据模型定义
-"""
+股票综合诊断系统数据模型
 
-from dataclasses import dataclass, field, asdict
-from datetime import datetime
-from typing import List, Dict, Any, Optional
+定义诊断报告的核心数据结构：
+1. DimensionAnalysis - 单个维度的分析结果
+2. DiagnosisReport - 完整的综合诊断报告
+"""
+from dataclasses import dataclass, asdict, field
+from typing import Dict, List, Optional
 import json
 
 
 @dataclass
-class TechnicalScore:
-    """技术面评分"""
-    value: float  # 评分值 (0-100)
-    reasons: List[str]  # 评分理由
-    indicators: Dict[str, float]  # 关键指标
+class DimensionAnalysis:
+    """单个维度的分析结果"""
     
-    def to_dict(self) -> Dict[str, Any]:
+    score: int                          # 评分 (0-100)
+    status: str                         # 状态: green, yellow, red
+    message: str                        # 人话描述
+    details: Dict                       # 详细数据
+    
+    def to_dict(self) -> dict:
+        """转换为字典"""
         return asdict(self)
-
-
-@dataclass
-class LiquidityScore:
-    """流动性评分"""
-    value: float  # 评分值 (0-100)
-    reasons: List[str]  # 评分理由
-    indicators: Dict[str, float]  # 关键指标
     
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-
-@dataclass
-class MarketScore:
-    """市场环境评分"""
-    value: float  # 评分值 (0-100)
-    reasons: List[str]  # 评分理由
-    indicators: Dict[str, Any]  # 关键指标
+    def to_json(self) -> str:
+        """转换为JSON字符串"""
+        return json.dumps(self.to_dict(), ensure_ascii=False)
     
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-
-@dataclass
-class SignalLight:
-    """信号灯"""
-    color: str  # RED/YELLOW/GREEN
-    label: str  # 建议标签（如"可以关注"）
-    reason: str  # 信号理由
-    confidence: float  # 信号强度 (0-100)
+    @classmethod
+    def from_dict(cls, data: dict) -> 'DimensionAnalysis':
+        """从字典创建实例"""
+        return cls(**data)
     
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-
-@dataclass
-class RiskInfo:
-    """风险信息"""
-    current_price: float  # 当前价格
-    stop_loss_price: float  # 止损价位
-    take_profit_price: float  # 止盈价位
-    stop_loss_pct: float  # 止损百分比
-    take_profit_pct: float  # 止盈百分比
-    risk_reward_ratio: float  # 盈亏比
-    volatility: float  # 波动率
-    risk_level: str  # 风险等级 (LOW/MEDIUM/HIGH/EXTREME)
-    
-    # 风险因素
-    is_st_stock: bool  # 是否 ST 股
-    consecutive_losses: int  # 连续亏损年数
-    has_major_litigation: bool  # 是否有重大诉讼
-    warnings: List[str] = field(default_factory=list)  # 风险警告列表
-    
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-
-@dataclass
-class HistoricalPerformance:
-    """历史表现"""
-    diagnosis_date: str  # 诊断日期
-    diagnosis_price: float  # 诊断时价格
-    days_3_return: Optional[float] = None  # 3 天收益率
-    days_5_return: Optional[float] = None  # 5 天收益率
-    days_10_return: Optional[float] = None  # 10 天收益率
-    excess_return: Optional[float] = None  # 相对大盘超额收益
-    
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+    @classmethod
+    def from_json(cls, json_str: str) -> 'DimensionAnalysis':
+        """从JSON字符串创建实例"""
+        return cls.from_dict(json.loads(json_str))
 
 
 @dataclass
 class DiagnosisReport:
-    """诊断报告"""
-    code: str  # 股票代码
-    name: str  # 股票名称
-    current_price: float  # 当前价格
-    change_pct: float  # 涨跌幅
+    """完整的综合诊断报告"""
     
-    # 评分
-    overall_score: float  # 综合评分 (0-100)
-    technical_score: TechnicalScore  # 技术面评分
-    liquidity_score: LiquidityScore  # 流动性评分
-    market_score: MarketScore  # 市场环境评分
+    code: str                           # 股票代码
+    name: str                           # 股票名称
+    overall_score: int                  # 综合评分 (0-100)
+    overall_rating: str                 # 综合评级: 优秀/良好/一般/较差/很差
+    overall_status: str                 # 综合状态: green/yellow/red
     
-    # 信号灯
-    signal_light: SignalLight  # 红绿灯建议
+    # 五个维度的分析结果
+    dimensions: Dict[str, DimensionAnalysis] = field(default_factory=dict)
     
-    # 诊断意见
-    diagnosis_text: str  # 大白话诊断
+    # 综合判断
+    strengths: List[str] = field(default_factory=list)      # 优势列表
+    weaknesses: List[str] = field(default_factory=list)     # 劣势列表
+    suggestions: List[str] = field(default_factory=list)    # 投资建议列表
+    summary: str = ""                                        # 综合总结
     
-    # 风险管理
-    risk_info: RiskInfo  # 风险信息
+    updated_at: str = ""                # 更新时间
     
-    # 历史表现
-    historical_performance: Optional[HistoricalPerformance] = None
-    
-    # 元数据
-    timestamp: datetime = field(default_factory=datetime.now)  # 诊断时间
-    data_update_time: Optional[datetime] = None  # 数据更新时间
-    disclaimer: str = "本诊断仅供参考，不构成投资建议。投资者据此操作，风险自担。"
-    
-    # 数据来源
-    data_source: str = "同花顺 API"
-    data_coverage: str = "最近 90 天 K 线数据"
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典，用于 JSON 序列化"""
-        result = {
-            'code': self.code,
-            'name': self.name,
-            'current_price': self.current_price,
-            'change_pct': self.change_pct,
-            'overall_score': self.overall_score,
-            'technical_score': self.technical_score.to_dict(),
-            'liquidity_score': self.liquidity_score.to_dict(),
-            'market_score': self.market_score.to_dict(),
-            'signal_light': self.signal_light.to_dict(),
-            'diagnosis_text': self.diagnosis_text,
-            'risk_info': self.risk_info.to_dict(),
-            'timestamp': self.timestamp.isoformat() if self.timestamp else None,
-            'data_update_time': self.data_update_time.isoformat() if self.data_update_time else None,
-            'disclaimer': self.disclaimer,
-            'data_source': self.data_source,
-            'data_coverage': self.data_coverage,
+    def to_dict(self) -> dict:
+        """转换为字典"""
+        result = asdict(self)
+        # 转换 dimensions 中的 DimensionAnalysis 对象
+        result['dimensions'] = {
+            key: value.to_dict() if isinstance(value, DimensionAnalysis) else value
+            for key, value in self.dimensions.items()
         }
-        
-        if self.historical_performance:
-            result['historical_performance'] = self.historical_performance.to_dict()
-        
         return result
     
     def to_json(self) -> str:
-        """转换为 JSON 字符串"""
+        """转换为JSON字符串"""
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
-
-
-@dataclass
-class ComparisonReport:
-    """对比报告"""
-    stocks: List[Dict[str, Any]]  # 股票列表（简化版诊断信息）
-    recommendation: str  # 优先级建议
-    timestamp: datetime = field(default_factory=datetime.now)
     
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            'stocks': self.stocks,
-            'recommendation': self.recommendation,
-            'timestamp': self.timestamp.isoformat() if self.timestamp else None,
+    @classmethod
+    def from_dict(cls, data: dict) -> 'DiagnosisReport':
+        """从字典创建实例"""
+        # 转换 dimensions 字典中的数据为 DimensionAnalysis 对象
+        dimensions = {}
+        if 'dimensions' in data:
+            dimensions = {
+                key: DimensionAnalysis.from_dict(value) if isinstance(value, dict) else value
+                for key, value in data['dimensions'].items()
+            }
+        
+        return cls(
+            code=data['code'],
+            name=data['name'],
+            overall_score=data['overall_score'],
+            overall_rating=data['overall_rating'],
+            overall_status=data['overall_status'],
+            dimensions=dimensions,
+            strengths=data.get('strengths', []),
+            weaknesses=data.get('weaknesses', []),
+            suggestions=data.get('suggestions', []),
+            summary=data.get('summary', ''),
+            updated_at=data.get('updated_at', '')
+        )
+    
+    @classmethod
+    def from_json(cls, json_str: str) -> 'DiagnosisReport':
+        """从JSON字符串创建实例"""
+        return cls.from_dict(json.loads(json_str))
+    
+    def add_dimension(self, dimension_name: str, analysis: DimensionAnalysis) -> None:
+        """添加维度分析结果"""
+        self.dimensions[dimension_name] = analysis
+    
+    def get_dimension(self, dimension_name: str) -> Optional[DimensionAnalysis]:
+        """获取指定维度的分析结果"""
+        return self.dimensions.get(dimension_name)
+    
+    def has_dimension(self, dimension_name: str) -> bool:
+        """检查是否包含指定维度"""
+        return dimension_name in self.dimensions
+    
+    def get_available_dimensions(self) -> List[str]:
+        """获取所有可用维度的名称列表"""
+        return list(self.dimensions.keys())
+
+
+# 辅助函数
+def create_empty_diagnosis(code: str, name: str) -> DiagnosisReport:
+    """创建空的诊断报告"""
+    from datetime import datetime
+    
+    return DiagnosisReport(
+        code=code,
+        name=name,
+        overall_score=0,
+        overall_rating='未知',
+        overall_status='yellow',
+        dimensions={},
+        strengths=[],
+        weaknesses=[],
+        suggestions=[],
+        summary='诊断数据加载中...',
+        updated_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    )
+
+
+def calculate_overall_score(dimensions: Dict[str, DimensionAnalysis], 
+                           weights: Optional[Dict[str, float]] = None) -> int:
+    """
+    计算综合评分
+    
+    Args:
+        dimensions: 各维度分析结果
+        weights: 各维度权重，默认为 {
+            'technical': 0.20,
+            'fundamental': 0.30,
+            'sector': 0.15,
+            'capital': 0.20,
+            'market_comparison': 0.15
         }
     
-    def to_json(self) -> str:
-        return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
-
-
-@dataclass
-class DiagnosisRecord:
-    """诊断历史记录"""
-    id: str  # 诊断 ID
-    code: str  # 股票代码
-    name: str  # 股票名称
-    diagnosis_time: datetime  # 诊断时间
-    diagnosis_price: float  # 诊断时价格
-    current_price: Optional[float] = None  # 当前价格
-    change_pct: Optional[float] = None  # 涨跌幅
-    overall_score: float = 0.0  # 综合评分
-    signal_light: Optional[Dict[str, Any]] = None  # 信号灯
+    Returns:
+        综合评分 (0-100)
+    """
+    if not dimensions:
+        return 0
     
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            'id': self.id,
-            'code': self.code,
-            'name': self.name,
-            'diagnosis_time': self.diagnosis_time.isoformat() if self.diagnosis_time else None,
-            'diagnosis_price': self.diagnosis_price,
-            'current_price': self.current_price,
-            'change_pct': self.change_pct,
-            'overall_score': self.overall_score,
-            'signal_light': self.signal_light,
+    # 默认权重
+    if weights is None:
+        weights = {
+            'technical': 0.20,
+            'fundamental': 0.30,
+            'sector': 0.15,
+            'capital': 0.20,
+            'market_comparison': 0.15
         }
+    
+    # 计算可用维度的总权重
+    available_weight = sum(weights.get(dim, 0) for dim in dimensions.keys())
+    
+    if available_weight == 0:
+        return 0
+    
+    # 计算加权平均分
+    weighted_sum = sum(
+        dimensions[dim].score * weights.get(dim, 0)
+        for dim in dimensions.keys()
+    )
+    
+    # 归一化到 0-100
+    overall_score = int(weighted_sum / available_weight)
+    
+    return max(0, min(100, overall_score))
+
+
+def get_rating_from_score(score: int) -> str:
+    """
+    根据评分获取评级
+    
+    Args:
+        score: 评分 (0-100)
+    
+    Returns:
+        评级: 优秀/良好/一般/较差/很差
+    """
+    if score >= 80:
+        return '优秀'
+    elif score >= 65:
+        return '良好'
+    elif score >= 50:
+        return '一般'
+    elif score >= 35:
+        return '较差'
+    else:
+        return '很差'
+
+
+def get_status_from_score(score: int) -> str:
+    """
+    根据评分获取状态
+    
+    Args:
+        score: 评分 (0-100)
+    
+    Returns:
+        状态: green/yellow/red
+    """
+    if score >= 70:
+        return 'green'
+    elif score >= 50:
+        return 'yellow'
+    else:
+        return 'red'

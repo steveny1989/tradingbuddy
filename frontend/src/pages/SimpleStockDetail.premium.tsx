@@ -8,6 +8,7 @@ import { Button, Typography, Tag, Spin, message, Radio } from 'antd';
 import { ArrowLeftOutlined, StarOutlined, StarFilled } from '@ant-design/icons';
 import { motion } from 'framer-motion';
 import { DataParticles, StockRatingCard } from '../components/premium';
+import { formatStockCode } from '../utils/stockCode';
 import { KLineChart } from '../components/stocks/KLineChart';
 import { formatPrice, formatPercentage } from '../utils/picker';
 import type { DailyData } from '../services/stocks';
@@ -259,7 +260,9 @@ const SimpleStockDetail: React.FC = () => {
               <Title level={2} style={{ color: '#fff', margin: 0, marginBottom: 8 }}>
                 {stockInfo.name}
               </Title>
-              <Text style={{ color: '#9ca3af', fontSize: 16 }}>{stockInfo.code}</Text>
+              <Text style={{ color: '#9ca3af', fontSize: 16 }}>
+                {formatStockCode(stockInfo.code)}
+              </Text>
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 36, fontWeight: 'bold', color: priceColor, marginBottom: 4 }}>

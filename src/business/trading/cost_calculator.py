@@ -4,16 +4,7 @@
 统一处理佣金、滑点、印花税等交易成本
 """
 from typing import Dict
-from dataclasses import dataclass
-
-
-@dataclass
-class TradingConfig:
-    """交易配置基类"""
-    commission_rate: float = 0.0003      # 佣金率 0.03%
-    slippage_rate: float = 0.001         # 滑点率 0.1%
-    stamp_tax_rate: float = 0.001        # 印花税率 0.1%（仅卖出）
-    min_commission: float = 5.0          # 最低佣金 5元
+from src.config.settings import TradingConfig
 
 
 class TradingCostCalculator:

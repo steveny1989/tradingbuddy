@@ -3,7 +3,7 @@
 """
 from flask import request, jsonify
 from . import api_bp
-from src.data.database import StockDatabase
+from src.data.database_adapter import DatabaseAdapter
 from src.business.strategies.volume_shrink import VolumeShrinkStrategy
 from src.business.strategies.ma_crossover import MACrossoverStrategy
 from src.web.utils.response import success_response, error_response
@@ -11,8 +11,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# 初始化数据库连接
-db = StockDatabase()
+# 初始化数据库连接（使用新的适配器）
+db = DatabaseAdapter()
 
 # 策略注册表 - 定义所有可用策略
 STRATEGY_REGISTRY = {

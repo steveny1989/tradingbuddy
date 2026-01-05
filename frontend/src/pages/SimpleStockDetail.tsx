@@ -13,6 +13,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Button, Space, Typography, Tag, Spin, message } from 'antd';
 import { ArrowLeftOutlined, StarOutlined, StarFilled } from '@ant-design/icons';
 import { formatPrice, formatPercentage, getPriceChangeColor } from '../utils/picker';
+import { formatStockCode } from '../utils/stockCode';
 import './SimpleStockDetail.css';
 
 const { Title, Text } = Typography;
@@ -238,7 +239,9 @@ const SimpleStockDetail: React.FC = () => {
           <div className="stock-header">
             <div className="stock-title">
               <Title level={3} style={{ margin: 0 }}>{stockInfo.name}</Title>
-              <Text type="secondary">{stockInfo.code}</Text>
+              <Text type="secondary">
+                {formatStockCode(stockInfo.code)}
+              </Text>
             </div>
             <div className="stock-price">
               <div className="price" style={{ color: priceColor }}>

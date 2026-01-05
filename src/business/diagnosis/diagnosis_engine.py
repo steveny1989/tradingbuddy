@@ -1,256 +1,470 @@
+# -*- coding: utf-8 -*-
 """
-个股诊断引擎
+股票综合诊断引擎 (Stock Diagnosis Engine)
 
-核心诊断引擎，协调各个评分器并生成最终报告。
+核心协调器，整合所有分析维度：
+1. 技术面分析 (Technical Analysis)
+2. 基本面分析 (Fundamental Analysis)
+3. 行业面分析 (Sector Analysis)
+4. 资金面分析 (Capital Analysis)
+5. 大盘对比分析 (Market Comparison)
+
+生成综合诊断报告，包括：
+- 综合评分 (0-100)
+- 综合评级 (优秀/良好/一般/较差/很差)
+- 优势/劣势分析
+- 投资建议
 """
-
-import re
-from datetime import datetime, timedelta
-from concurrent.futures import ThreadPoolExecutor
-from typing import Optional
+import sqlite3
+from typing import List, Dict, Optional
+from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
+import sys
+import os
 
-from .models import DiagnosisReport
-from .exceptions import StockNotFoundError, DataInsufficientError
-from .technical_scorer import TechnicalScorer
-from .liquidity_scorer import LiquidityScorer
-from .market_scorer import MarketEnvironmentScorer
-from .risk_calculator import RiskCalculator
-from .signal_evaluator import SignalLightEvaluator
-from .plain_language_generator import PlainLanguageGenerator
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
+from src.business.diagnosis.models import (
+    DiagnosisReport, DimensionAnalysis,
+    calculate_overall_score, get_rating_from_score, get_status_from_score
+)
+from src.business.diagnosis.technical_analyzer import TechnicalAnalyzer
+from src.business.diagnosis.fundamental_analyzer import FundamentalAnalyzer
+from src.business.diagnosis.market_comparison import MarketComparisonAnalyzer
+from src.business.post_market.sector_analysis import SectorAnalyzer
+from src.business.post_market.capital_analysis import CapitalAnalyzer
+
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 class StockDiagnosisEngine:
-    """个股诊断引擎"""
+    """股票综合诊断引擎"""
     
-    def __init__(self, data_fetcher, financial_fetcher=None, cache=None):
+    def __init__(self, db_path: str = "data/a_share.db", cache_ttl: int = 3600):
         """
         初始化诊断引擎
         
         Args:
-            data_fetcher: 数据获取器（用于获取股票日线数据）
-            financial_fetcher: 财务数据获取器（可选）
-            cache: 缓存管理器（可选）
+            db_path: 数据库路径
+            cache_ttl: 缓存过期时间（秒），默认1小时
         """
-        self.data_fetcher = data_fetcher
-        self.financial_fetcher = financial_fetcher
-        self.cache = cache
+        self.db_path = db_path
+        self.cache_ttl = cache_ttl
         
-        # 初始化各个组件
-        self.technical_scorer = TechnicalScorer()
-        self.liquidity_scorer = LiquidityScorer()
-        self.market_scorer = MarketEnvironmentScorer(data_fetcher)
-        self.risk_calculator = RiskCalculator(financial_fetcher)
-        self.signal_evaluator = SignalLightEvaluator()
-        self.plain_language_generator = PlainLanguageGenerator()
+        # 初始化所有分析器
+        self.technical_analyzer = TechnicalAnalyzer(db_path)
+        self.fundamental_analyzer = FundamentalAnalyzer(db_path)
+        self.sector_analyzer = SectorAnalyzer(db_path)
+        self.capital_analyzer = CapitalAnalyzer(db_path)
+        self.market_comparison_analyzer = MarketComparisonAnalyzer(db_path)
+        
+        # 简单的内存缓存（生产环境应使用Redis等）
+        self._cache = {}
+        
+        # 默认权重
+        self.default_weights = {
+            'technical': 0.20,
+            'fundamental': 0.30,
+            'sector': 0.15,
+            'capital': 0.20,
+            'market_comparison': 0.15
+        }
     
-    def diagnose_stock(self, code: str, user_id: Optional[str] = None) -> DiagnosisReport:
+    def diagnose(self, code: str, use_cache: bool = True) -> DiagnosisReport:
         """
-        诊断单只股票
+        对单只股票进行综合诊断
         
         Args:
-            code: 股票代码（支持 sh.600000 或 600000 格式）
-            user_id: 用户 ID（用于记录历史）
-            
+            code: 股票代码 (如: 600519 或 sh.600519)
+            use_cache: 是否使用缓存
+        
         Returns:
             DiagnosisReport: 完整的诊断报告
-            
-        Raises:
-            StockNotFoundError: 股票代码不存在
-            DataInsufficientError: 数据不足以生成诊断
         """
-        # 1. 标准化股票代码
-        normalized_code = self._normalize_code(code)
+        # 处理代码格式
+        clean_code = code.split('.')[-1] if '.' in code else code
         
-        # 2. 检查缓存（5 分钟有效期）
-        if self.cache:
-            cached_report = self._get_from_cache(normalized_code)
-            if cached_report:
-                logger.info(f"从缓存获取诊断报告: {normalized_code}")
-                return cached_report
+        # 1. 检查缓存
+        if use_cache:
+            cached = self._get_from_cache(clean_code)
+            if cached:
+                logger.info(f"从缓存获取诊断报告: {clean_code}")
+                return cached
         
-        # 3. 获取股票数据
-        stock_data = self._fetch_stock_data(normalized_code)
+        # 2. 获取股票名称
+        stock_name = self._get_stock_name(clean_code)
         
-        # 4. 获取股票基本信息
-        stock_info = self._get_stock_info(normalized_code)
-        name = stock_info.get('name', normalized_code)
+        # 3. 并行调用所有分析器
+        dimensions = self._run_all_analyzers(clean_code)
         
-        # 5. 并行计算各维度评分
-        logger.info(f"开始诊断股票: {normalized_code} ({name})")
+        # 4. 计算综合评分
+        overall_score = calculate_overall_score(dimensions, self.default_weights)
         
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            technical_future = executor.submit(self.technical_scorer.score, stock_data)
-            liquidity_future = executor.submit(self.liquidity_scorer.score, stock_data)
-            market_future = executor.submit(self.market_scorer.score, stock_data, stock_info.get('sector'))
-            risk_future = executor.submit(self.risk_calculator.calculate, stock_data, normalized_code, name)
+        # 5. 生成评级和状态
+        overall_rating = get_rating_from_score(overall_score)
+        overall_status = get_status_from_score(overall_score)
         
-        technical_score = technical_future.result()
-        liquidity_score = liquidity_future.result()
-        market_score = market_future.result()
-        risk_info = risk_future.result()
+        # 6. 识别优势和劣势
+        strengths, weaknesses = self._identify_strengths_weaknesses(dimensions)
         
-        # 6. 计算综合评分
-        overall_score = (
-            technical_score.value * 0.6 +
-            liquidity_score.value * 0.2 +
-            market_score.value * 0.2
-        )
+        # 7. 生成投资建议
+        suggestions = self._generate_suggestions(dimensions, overall_score, overall_status)
         
-        # 7. 生成信号灯
-        signal_light = self.signal_evaluator.evaluate(
-            overall_score, technical_score, liquidity_score, market_score, risk_info
-        )
+        # 8. 生成综合总结
+        summary = self._generate_summary(stock_name, overall_rating, strengths, weaknesses)
         
-        # 8. 生成大白话诊断意见
-        diagnosis_text = self.plain_language_generator.generate(
-            stock_data, name, technical_score, liquidity_score, market_score, signal_light
-        )
-        
-        # 9. 计算涨跌幅
-        latest = stock_data.iloc[-1]
-        if len(stock_data) >= 2:
-            previous = stock_data.iloc[-2]
-            change_pct = (latest['close'] - previous['close']) / previous['close'] * 100
-        else:
-            change_pct = 0.0
-        
-        # 10. 获取数据更新时间
-        data_update_time = self._get_data_update_time(stock_data)
-        
-        # 11. 组装诊断报告
+        # 9. 创建诊断报告
         report = DiagnosisReport(
-            code=normalized_code,
-            name=name,
-            current_price=latest['close'],
-            change_pct=change_pct,
+            code=clean_code,
+            name=stock_name,
             overall_score=overall_score,
-            technical_score=technical_score,
-            liquidity_score=liquidity_score,
-            market_score=market_score,
-            signal_light=signal_light,
-            diagnosis_text=diagnosis_text,
-            risk_info=risk_info,
-            timestamp=datetime.now(),
-            data_update_time=data_update_time
+            overall_rating=overall_rating,
+            overall_status=overall_status,
+            dimensions=dimensions,
+            strengths=strengths,
+            weaknesses=weaknesses,
+            suggestions=suggestions,
+            summary=summary,
+            updated_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         )
         
-        # 12. 缓存结果
-        if self.cache:
-            self._save_to_cache(normalized_code, report)
+        # 10. 缓存结果
+        if use_cache:
+            self._save_to_cache(clean_code, report)
         
-        # 13. 记录诊断历史
-        if user_id:
-            self._save_diagnosis_history(user_id, report)
-        
-        logger.info(f"诊断完成: {normalized_code}, 综合评分: {overall_score:.1f}, 信号灯: {signal_light.color}")
+        logger.info(f"完成诊断: {clean_code} - {stock_name} - 评分: {overall_score}")
         
         return report
     
-    def _normalize_code(self, code: str) -> str:
-        """标准化股票代码"""
-        code = code.strip().upper()
+    def diagnose_batch(self, codes: List[str], use_cache: bool = True, 
+                      max_workers: int = 5) -> List[DiagnosisReport]:
+        """
+        批量诊断（并行处理）
         
-        # 如果已经有前缀，直接返回
-        if code.startswith('SH.') or code.startswith('SZ.'):
-            return code.lower()
+        Args:
+            codes: 股票代码列表
+            use_cache: 是否使用缓存
+            max_workers: 最大并行数
         
-        # 去掉可能的前缀
-        code = re.sub(r'^(SH|SZ)\.?', '', code, flags=re.IGNORECASE)
+        Returns:
+            List[DiagnosisReport]: 诊断报告列表
+        """
+        reports = []
         
-        # 根据代码判断市场
-        if code.startswith('6'):
-            return f'sh.{code}'
-        elif code.startswith(('0', '3')):
-            return f'sz.{code}'
-        else:
-            # 默认上海
-            return f'sh.{code}'
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # 提交所有任务
+            future_to_code = {
+                executor.submit(self.diagnose, code, use_cache): code 
+                for code in codes
+            }
+            
+            # 收集结果
+            for future in as_completed(future_to_code):
+                code = future_to_code[future]
+                try:
+                    report = future.result()
+                    reports.append(report)
+                except Exception as e:
+                    logger.error(f"诊断 {code} 失败: {e}")
+        
+        return reports
     
-    def _fetch_stock_data(self, code: str):
-        """获取股票数据"""
-        # 获取最近 90 天的数据
-        from datetime import datetime, timedelta
-        end_date = datetime.now().strftime('%Y-%m-%d')
-        start_date = (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')
-        stock_data = self.data_fetcher.get_daily_data(code, start_date=start_date, end_date=end_date)
+    def _run_all_analyzers(self, code: str) -> Dict[str, DimensionAnalysis]:
+        """并行运行所有分析器"""
+        dimensions = {}
         
-        if stock_data is None or stock_data.empty:
-            raise StockNotFoundError(code, f"未找到股票代码: {code}")
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            # 提交所有分析任务
+            futures = {
+                'technical': executor.submit(self._run_technical_analysis, code),
+                'fundamental': executor.submit(self._run_fundamental_analysis, code),
+                'sector': executor.submit(self._run_sector_analysis, code),
+                'capital': executor.submit(self._run_capital_analysis, code),
+                'market_comparison': executor.submit(self._run_market_comparison, code)
+            }
+            
+            # 收集结果
+            for dimension_name, future in futures.items():
+                try:
+                    result = future.result()
+                    if result:
+                        dimensions[dimension_name] = result
+                except Exception as e:
+                    logger.warning(f"{dimension_name} 分析失败: {e}")
         
-        if len(stock_data) < 60:
-            raise DataInsufficientError(
-                code, 
-                required_days=60, 
-                actual_days=len(stock_data),
-                message=f"股票 {code} 数据不足: 需要至少 60 天，实际只有 {len(stock_data)} 天"
+        return dimensions
+    
+    def _run_technical_analysis(self, code: str) -> Optional[DimensionAnalysis]:
+        """运行技术面分析"""
+        try:
+            result = self.technical_analyzer.analyze(code)
+            return DimensionAnalysis(
+                score=result['score'],
+                status=result['status'],
+                message=result['message'],
+                details=result['details']
             )
-        
-        return stock_data
-    
-    def _get_stock_info(self, code: str) -> dict:
-        """获取股票基本信息"""
-        try:
-            # 尝试从数据库获取股票基本信息
-            info = self.data_fetcher.get_stock_basic(code)
-            if info:
-                return info
-        except:
-            pass
-        
-        # 如果获取失败，返回默认信息
-        return {
-            'code': code,
-            'name': code,
-            'sector': None
-        }
-    
-    def _get_data_update_time(self, stock_data) -> Optional[datetime]:
-        """获取数据更新时间"""
-        try:
-            latest_date = stock_data.iloc[-1]['date']
-            if isinstance(latest_date, str):
-                return datetime.strptime(latest_date, '%Y-%m-%d')
-            return latest_date
-        except:
+        except Exception as e:
+            logger.error(f"技术面分析失败: {e}")
             return None
+    
+    def _run_fundamental_analysis(self, code: str) -> Optional[DimensionAnalysis]:
+        """运行基本面分析"""
+        try:
+            result = self.fundamental_analyzer.analyze(code)
+            return DimensionAnalysis(
+                score=result['score'],
+                status=result['status'],
+                message=result['message'],
+                details=result['details']
+            )
+        except Exception as e:
+            logger.error(f"基本面分析失败: {e}")
+            return None
+    
+    def _run_sector_analysis(self, code: str) -> Optional[DimensionAnalysis]:
+        """运行行业面分析"""
+        try:
+            result = self.sector_analyzer.generate_sector_report(code)
+            
+            # 转换为标准格式
+            score = self._convert_sector_score(result)
+            
+            return DimensionAnalysis(
+                score=score,
+                status=result.get('status', 'yellow'),
+                message=result.get('message', ''),
+                details=result
+            )
+        except Exception as e:
+            logger.error(f"行业面分析失败: {e}")
+            return None
+    
+    def _run_capital_analysis(self, code: str) -> Optional[DimensionAnalysis]:
+        """运行资金面分析"""
+        try:
+            result = self.capital_analyzer.generate_capital_report(code)
+            
+            # 转换为标准格式
+            score = self._convert_capital_score(result)
+            
+            return DimensionAnalysis(
+                score=score,
+                status=result.get('status', 'yellow'),
+                message=result.get('message', ''),
+                details=result
+            )
+        except Exception as e:
+            logger.error(f"资金面分析失败: {e}")
+            return None
+    
+    def _run_market_comparison(self, code: str) -> Optional[DimensionAnalysis]:
+        """运行大盘对比分析"""
+        try:
+            result = self.market_comparison_analyzer.analyze(code, days=30)
+            return DimensionAnalysis(
+                score=result['score'],
+                status=result['status'],
+                message=result['message'],
+                details=result['details']
+            )
+        except Exception as e:
+            logger.error(f"大盘对比分析失败: {e}")
+            return None
+    
+    def _convert_sector_score(self, result: Dict) -> int:
+        """将行业面分析结果转换为0-100评分"""
+        status = result.get('status', 'yellow')
+        
+        # 基于状态给分
+        if status == 'green':
+            base_score = 75
+        elif status == 'yellow':
+            base_score = 55
+        else:
+            base_score = 35
+        
+        # 基于行业排名调整
+        industry_rank = result.get('industry_rank')
+        if industry_rank:
+            if industry_rank <= 5:
+                base_score += 15
+            elif industry_rank <= 10:
+                base_score += 10
+            elif industry_rank <= 20:
+                base_score += 5
+        
+        return max(0, min(100, base_score))
+    
+    def _convert_capital_score(self, result: Dict) -> int:
+        """将资金面分析结果转换为0-100评分"""
+        status = result.get('status', 'yellow')
+        
+        # 基于状态给分
+        if status == 'green':
+            return 75
+        elif status == 'yellow':
+            return 55
+        else:
+            return 35
+    
+    def _identify_strengths_weaknesses(self, dimensions: Dict[str, DimensionAnalysis]) -> tuple:
+        """识别优势和劣势"""
+        strengths = []
+        weaknesses = []
+        
+        dimension_names = {
+            'technical': '技术面',
+            'fundamental': '基本面',
+            'sector': '行业面',
+            'capital': '资金面',
+            'market_comparison': '大盘对比'
+        }
+        
+        for dim_key, dim_analysis in dimensions.items():
+            dim_name = dimension_names.get(dim_key, dim_key)
+            
+            if dim_analysis.score >= 75:
+                # 优势
+                strengths.append(f"{dim_name}{dim_analysis.message}")
+            elif dim_analysis.score < 50:
+                # 劣势
+                weaknesses.append(f"{dim_name}{dim_analysis.message}")
+        
+        return strengths, weaknesses
+    
+    def _generate_suggestions(self, dimensions: Dict[str, DimensionAnalysis], 
+                            overall_score: int, overall_status: str) -> List[str]:
+        """生成投资建议"""
+        suggestions = []
+        
+        # 1. 基于综合评分的建议
+        if overall_score >= 80:
+            suggestions.append("综合表现优秀，可以考虑买入或持有")
+        elif overall_score >= 65:
+            suggestions.append("综合表现良好，适合中长期持有")
+        elif overall_score >= 50:
+            suggestions.append("综合表现一般，建议观望或小仓位试探")
+        else:
+            suggestions.append("综合表现较弱，建议回避或减仓")
+        
+        # 2. 基于技术面的建议
+        if 'technical' in dimensions:
+            tech = dimensions['technical']
+            if tech.score < 50:
+                suggestions.append("技术面偏弱，等待技术指标改善后再介入")
+            elif tech.details.get('rsi', 50) < 30:
+                suggestions.append("RSI超卖，可能存在短期反弹机会")
+        
+        # 3. 基于基本面的建议
+        if 'fundamental' in dimensions:
+            fund = dimensions['fundamental']
+            if fund.score >= 75:
+                suggestions.append("基本面优秀，适合长期投资")
+            elif fund.score < 50:
+                suggestions.append("基本面较弱，不建议长期持有")
+        
+        # 4. 基于资金面的建议
+        if 'capital' in dimensions:
+            cap = dimensions['capital']
+            if cap.status == 'red':
+                suggestions.append("资金持续流出，注意风险")
+            elif cap.status == 'green':
+                suggestions.append("资金流入积极，可关注短期机会")
+        
+        # 5. 基于大盘对比的建议
+        if 'market_comparison' in dimensions:
+            market = dimensions['market_comparison']
+            if market.details.get('relative_strength') == 'strong':
+                suggestions.append("相对大盘表现强势，可重点关注")
+        
+        return suggestions
+    
+    def _generate_summary(self, stock_name: str, overall_rating: str, 
+                         strengths: List[str], weaknesses: List[str]) -> str:
+        """生成综合总结"""
+        summary_parts = [f"{stock_name}综合评级为{overall_rating}"]
+        
+        if strengths:
+            summary_parts.append(f"主要优势：{strengths[0]}")
+        
+        if weaknesses:
+            summary_parts.append(f"主要风险：{weaknesses[0]}")
+        
+        # 投资建议
+        if overall_rating in ['优秀', '良好']:
+            summary_parts.append("建议投资者关注并适时介入")
+        elif overall_rating == '一般':
+            summary_parts.append("建议投资者谨慎观望")
+        else:
+            summary_parts.append("建议投资者回避或减仓")
+        
+        return "。".join(summary_parts) + "。"
+    
+    def _get_stock_name(self, code: str) -> str:
+        """获取股票名称"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        query = "SELECT name FROM stock_basic WHERE code = ?"
+        cursor.execute(query, (code,))
+        result = cursor.fetchone()
+        conn.close()
+        
+        return result[0] if result else code
     
     def _get_from_cache(self, code: str) -> Optional[DiagnosisReport]:
-        """从缓存获取诊断报告"""
-        try:
-            cache_key = f"diagnosis:{code}"
-            cached_data = self.cache.get(cache_key)
-            
-            if cached_data:
-                # 检查缓存是否过期（5 分钟）
-                if 'timestamp' in cached_data:
-                    cached_time = cached_data['timestamp']
-                    if isinstance(cached_time, str):
-                        cached_time = datetime.fromisoformat(cached_time)
-                    
-                    if datetime.now() - cached_time < timedelta(minutes=5):
-                        return cached_data.get('report')
-            
-            return None
-        except Exception as e:
-            logger.warning(f"从缓存获取失败: {e}")
-            return None
+        """从缓存获取"""
+        if code in self._cache:
+            cached_data, timestamp = self._cache[code]
+            # 检查是否过期
+            if (datetime.now() - timestamp).total_seconds() < self.cache_ttl:
+                return cached_data
+            else:
+                # 过期，删除
+                del self._cache[code]
+        return None
     
     def _save_to_cache(self, code: str, report: DiagnosisReport):
-        """保存诊断报告到缓存"""
-        try:
-            cache_key = f"diagnosis:{code}"
-            cache_data = {
-                'report': report,
-                'timestamp': datetime.now()
-            }
-            self.cache.set(cache_key, cache_data, ttl=300)  # 5 分钟
-        except Exception as e:
-            logger.warning(f"保存到缓存失败: {e}")
+        """保存到缓存"""
+        self._cache[code] = (report, datetime.now())
     
-    def _save_diagnosis_history(self, user_id: str, report: DiagnosisReport):
-        """保存诊断历史"""
-        # TODO: 实现历史记录保存
-        pass
+    def clear_cache(self, code: Optional[str] = None):
+        """清除缓存"""
+        if code:
+            if code in self._cache:
+                del self._cache[code]
+                logger.info(f"清除缓存: {code}")
+        else:
+            self._cache.clear()
+            logger.info("清除所有缓存")
+
+
+if __name__ == "__main__":
+    # 测试代码
+    engine = StockDiagnosisEngine()
+    
+    # 测试1: 单股诊断
+    print("=== 测试1: 贵州茅台 (600519) ===")
+    report = engine.diagnose("600519")
+    print(f"股票: {report.name} ({report.code})")
+    print(f"综合评分: {report.overall_score}")
+    print(f"综合评级: {report.overall_rating}")
+    print(f"综合状态: {report.overall_status}")
+    print(f"\n各维度评分:")
+    for dim_name, dim_analysis in report.dimensions.items():
+        print(f"  {dim_name}: {dim_analysis.score}分 - {dim_analysis.message}")
+    print(f"\n优势: {report.strengths}")
+    print(f"劣势: {report.weaknesses}")
+    print(f"建议: {report.suggestions}")
+    print(f"总结: {report.summary}")
+    
+    # 测试2: 批量诊断
+    print("\n\n=== 测试2: 批量诊断 ===")
+    codes = ["600519", "000001", "000858"]
+    reports = engine.diagnose_batch(codes)
+    for report in reports:
+        print(f"{report.name} ({report.code}): {report.overall_score}分 - {report.overall_rating}")

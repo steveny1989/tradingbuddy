@@ -233,6 +233,49 @@ class StockDatabase:
         except:
             return pd.DataFrame()
     
+    def get_stock_basic(self, code: str) -> dict:
+        """
+        获取股票基本信息
+        
+        Args:
+            code: 股票代码（支持 sh.600519 或 600519 格式）
+            
+        Returns:
+            dict: 包含 code, name, market, sector 等信息
+        """
+        try:
+            # 提取纯数字代码
+            code_without_prefix = code.split('.')[1] if '.' in code else code
+            
+            # 从 stock_basic 表查询
+            cursor = self.conn.execute(
+                "SELECT code, name, market FROM stock_basic WHERE code = ?",
+                (code_without_prefix,)
+            )
+            row = cursor.fetchone()
+            
+            if row:
+                return {
+                    'code': code,
+                    'name': row[1],  # 中文名称
+                    'market': row[2],
+                    'sector': None  # TODO: 如果有行业信息可以添加
+                }
+            else:
+                # 如果找不到，返回代码作为名称
+                return {
+                    'code': code,
+                    'name': code,
+                    'sector': None
+                }
+        except Exception as e:
+            logger.warning(f"获取股票基本信息失败 {code}: {e}")
+            return {
+                'code': code,
+                'name': code,
+                'sector': None
+            }
+    
     def save_daily_data(self, code: str, df: pd.DataFrame, sync_to_unified: bool = True):
         """
         保存单只股票的日线数据（使用UPSERT避免数据丢失）

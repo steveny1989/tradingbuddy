@@ -1,139 +1,253 @@
+# -*- coding: utf-8 -*-
 """
-个股诊断 API 路由
+股票诊断 API 路由
+
+提供股票综合诊断的 REST API 接口
 """
 from flask import Blueprint, jsonify, request
-from src.data.database import StockDatabase
-from src.business.diagnosis import StockDiagnosisEngine
-from src.web.utils.errors import APIError
 import logging
+import sys
+import os
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
+
+from src.business.diagnosis.diagnosis_engine import StockDiagnosisEngine
 
 logger = logging.getLogger(__name__)
 
+# 创建 Blueprint
 diagnosis_bp = Blueprint('diagnosis', __name__, url_prefix='/api/diagnosis')
 
-# 初始化数据库和诊断引擎
-db = StockDatabase("data/a_share.db")
-diagnosis_engine = StockDiagnosisEngine(data_fetcher=db)
+# 初始化诊断引擎（全局单例）
+diagnosis_engine = None
+
+
+def get_diagnosis_engine():
+    """获取诊断引擎实例（懒加载）"""
+    global diagnosis_engine
+    if diagnosis_engine is None:
+        diagnosis_engine = StockDiagnosisEngine()
+    return diagnosis_engine
 
 
 @diagnosis_bp.route('/<code>', methods=['GET'])
-def diagnose_stock(code):
+def get_stock_diagnosis(code: str):
     """
-    诊断单只股票
+    获取单只股票的综合诊断
     
-    Args:
-        code: 股票代码（支持 sh.600000 或 600000 格式）
-        
+    GET /api/diagnosis/{code}
+    
+    Query Parameters:
+        - use_cache: 是否使用缓存（默认true）
+    
     Returns:
-        JSON: 诊断报告
-    """
-    try:
-        logger.info(f"诊断股票: {code}")
-        
-        # 调用诊断引擎
-        report = diagnosis_engine.diagnose_stock(code)
-        
-        # 转换为 JSON 格式
-        result = {
-            'code': report.code,
-            'name': report.name,
-            'current_price': report.current_price,
-            'change_pct': report.change_pct,
-            'overall_score': report.overall_score,
-            'technical_score': {
-                'value': report.technical_score.value,
-                'reasons': report.technical_score.reasons
-            },
-            'liquidity_score': {
-                'value': report.liquidity_score.value,
-                'reasons': report.liquidity_score.reasons
-            },
-            'market_score': {
-                'value': report.market_score.value,
-                'reasons': report.market_score.reasons
-            },
-            'signal_light': {
-                'color': report.signal_light.color,
-                'label': report.signal_light.label,
-                'confidence': report.signal_light.confidence,
-                'reason': report.signal_light.reason
-            },
-            'risk_info': {
-                'current_price': report.risk_info.current_price,
-                'stop_loss_price': report.risk_info.stop_loss_price,
-                'stop_loss_pct': report.risk_info.stop_loss_pct,
-                'take_profit_price': report.risk_info.take_profit_price,
-                'take_profit_pct': report.risk_info.take_profit_pct,
-                'risk_reward_ratio': report.risk_info.risk_reward_ratio,
-                'volatility': report.risk_info.volatility,
-                'risk_level': report.risk_info.risk_level,
-                'warnings': report.risk_info.warnings
-            },
-            'diagnosis_text': report.diagnosis_text,
-            'disclaimer': report.disclaimer,
-            'data_source': report.data_source,
-            'data_coverage': report.data_coverage,
-            'data_update_time': report.data_update_time.strftime('%Y-%m-%d') if report.data_update_time else None,
-            'timestamp': report.timestamp.isoformat()
+        {
+            "code": "600519",
+            "name": "贵州茅台",
+            "overall_score": 85,
+            "overall_rating": "优秀",
+            "overall_status": "green",
+            "dimensions": {...},
+            "strengths": [...],
+            "weaknesses": [...],
+            "suggestions": [...],
+            "summary": "...",
+            "updated_at": "2026-01-04 10:30:00"
         }
-        
-        return jsonify(result)
-        
-    except Exception as e:
-        logger.error(f"诊断失败: {code}, 错误: {e}")
-        return jsonify({
-            'error': str(e),
-            'code': code
-        }), 400
-
-
-@diagnosis_bp.route('/search', methods=['GET'])
-def search_stocks():
-    """
-    搜索股票（支持代码和名称模糊搜索）
-    
-    Query params:
-        q: 搜索关键词
-        
-    Returns:
-        JSON: 股票列表
     """
     try:
-        keyword = request.args.get('q', '').strip()
+        # 获取查询参数
+        use_cache = request.args.get('use_cache', 'true').lower() == 'true'
         
-        logger.info(f"搜索股票: keyword='{keyword}'")
+        # 执行诊断
+        engine = get_diagnosis_engine()
+        report = engine.diagnose(code, use_cache=use_cache)
         
-        if not keyword:
-            logger.info("搜索关键词为空")
-            return jsonify({'stocks': []})
+        # 返回JSON
+        return jsonify(report.to_dict()), 200
         
-        # 从数据库搜索
-        stocks = db.get_stock_list()
-        logger.info(f"数据库中共有 {len(stocks)} 只股票")
-        
-        # 模糊匹配
-        keyword_upper = keyword.upper()
-        matched = stocks[
-            stocks['code'].str.contains(keyword_upper, case=False, na=False) |
-            stocks['name'].str.contains(keyword, case=False, na=False)
-        ]
-        
-        logger.info(f"匹配到 {len(matched)} 只股票")
-        
-        # 限制返回数量
-        matched = matched.head(10)
-        
-        result = []
-        for _, row in matched.iterrows():
-            result.append({
-                'code': row['code'],
-                'name': row['name'],
-                'market': row.get('market', '')
-            })
-        
-        logger.info(f"返回 {len(result)} 只股票")
-        return jsonify({'stocks': result})
+    except ValueError as e:
+        logger.error(f"诊断失败 - 参数错误: {e}")
+        return jsonify({
+            'error': 'invalid_parameter',
+            'message': str(e)
+        }), 400
         
     except Exception as e:
-        logger.error(f"搜索失败: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 400
+        logger.error(f"诊断失败 - 服务器错误: {e}")
+        return jsonify({
+            'error': 'internal_error',
+            'message': '服务器内部错误'
+        }), 500
+
+
+@diagnosis_bp.route('/batch', methods=['POST'])
+def batch_stock_diagnosis():
+    """
+    批量获取股票诊断
+    
+    POST /api/diagnosis/batch
+    
+    Request Body:
+        {
+            "codes": ["600519", "000001", "000858"],
+            "use_cache": true,
+            "max_workers": 5
+        }
+    
+    Returns:
+        {
+            "total": 3,
+            "success": 3,
+            "failed": 0,
+            "reports": [...]
+        }
+    """
+    try:
+        # 解析请求体
+        data = request.get_json()
+        if not data or 'codes' not in data:
+            return jsonify({
+                'error': 'invalid_request',
+                'message': '请求体必须包含 codes 字段'
+            }), 400
+        
+        codes = data['codes']
+        use_cache = data.get('use_cache', True)
+        max_workers = data.get('max_workers', 5)
+        
+        # 验证参数
+        if not isinstance(codes, list):
+            return jsonify({
+                'error': 'invalid_parameter',
+                'message': 'codes 必须是数组'
+            }), 400
+        
+        if len(codes) == 0:
+            return jsonify({
+                'error': 'invalid_parameter',
+                'message': 'codes 不能为空'
+            }), 400
+        
+        if len(codes) > 50:
+            return jsonify({
+                'error': 'invalid_parameter',
+                'message': 'codes 最多支持50只股票'
+            }), 400
+        
+        # 执行批量诊断
+        engine = get_diagnosis_engine()
+        reports = engine.diagnose_batch(codes, use_cache=use_cache, max_workers=max_workers)
+        
+        # 统计结果
+        total = len(codes)
+        success = len(reports)
+        failed = total - success
+        
+        # 返回JSON
+        return jsonify({
+            'total': total,
+            'success': success,
+            'failed': failed,
+            'reports': [report.to_dict() for report in reports]
+        }), 200
+        
+    except ValueError as e:
+        logger.error(f"批量诊断失败 - 参数错误: {e}")
+        return jsonify({
+            'error': 'invalid_parameter',
+            'message': str(e)
+        }), 400
+        
+    except Exception as e:
+        logger.error(f"批量诊断失败 - 服务器错误: {e}")
+        return jsonify({
+            'error': 'internal_error',
+            'message': '服务器内部错误'
+        }), 500
+
+
+@diagnosis_bp.route('/cache/clear', methods=['POST'])
+def clear_diagnosis_cache():
+    """
+    清除诊断缓存
+    
+    POST /api/diagnosis/cache/clear
+    
+    Request Body (可选):
+        {
+            "code": "600519"  # 如果不提供，清除所有缓存
+        }
+    
+    Returns:
+        {
+            "message": "缓存已清除"
+        }
+    """
+    try:
+        data = request.get_json() or {}
+        code = data.get('code')
+        
+        engine = get_diagnosis_engine()
+        engine.clear_cache(code)
+        
+        if code:
+            message = f"已清除 {code} 的缓存"
+        else:
+            message = "已清除所有缓存"
+        
+        return jsonify({
+            'message': message
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"清除缓存失败: {e}")
+        return jsonify({
+            'error': 'internal_error',
+            'message': '服务器内部错误'
+        }), 500
+
+
+@diagnosis_bp.route('/health', methods=['GET'])
+def health_check():
+    """
+    健康检查
+    
+    GET /api/diagnosis/health
+    
+    Returns:
+        {
+            "status": "ok",
+            "engine": "initialized"
+        }
+    """
+    try:
+        engine = get_diagnosis_engine()
+        return jsonify({
+            'status': 'ok',
+            'engine': 'initialized' if engine else 'not_initialized'
+        }), 200
+    except Exception as e:
+        logger.error(f"健康检查失败: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+# 错误处理
+@diagnosis_bp.errorhandler(404)
+def not_found(error):
+    return jsonify({
+        'error': 'not_found',
+        'message': '资源不存在'
+    }), 404
+
+
+@diagnosis_bp.errorhandler(500)
+def internal_error(error):
+    return jsonify({
+        'error': 'internal_error',
+        'message': '服务器内部错误'
+    }), 500

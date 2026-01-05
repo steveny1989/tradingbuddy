@@ -41,13 +41,14 @@ def create_app():
     app.register_blueprint(diagnosis_bp)
     
     # 初始化选股缓存
-    from src.web.cache_manager import init_cache
-    from src.web.routes.picker import get_picks_from_database
-    
-    with app.app_context():
-        app.logger.info("初始化选股缓存...")
-        init_cache(get_picks_from_database)
-        app.logger.info("选股缓存初始化完成")
+    # Temporarily disabled - picker module not yet implemented
+    # from src.web.cache_manager import init_cache
+    # from src.web.routes.picker import get_picks_from_database
+    #
+    # with app.app_context():
+    #     app.logger.info("初始化选股缓存...")
+    #     init_cache(get_picks_from_database)
+    #     app.logger.info("选股缓存初始化完成")
     
     # 全局错误处理器
     from src.web.utils.errors import APIError
